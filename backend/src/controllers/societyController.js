@@ -1,4 +1,5 @@
 ﻿import { Society } from "../models/Society.js";
+import { getPagination, makePaginationMeta } from "../utils/pagination.js";
 
 export async function listSocieties(req, res) {
   const query = {};
@@ -9,6 +10,19 @@ export async function listSocieties(req, res) {
     query.bmcId = bmcId;
   }
   
-  const list = await Society.find(query, "societyId societyName district taluk contactNumber bmcId").sort({ societyName: 1 });
-  res.json({ data: list });
+  const projection = "societyId societyName district taluk contactNumber bmcId";
+  const pagination = getPagination(req.query);
+
+  if (!pagination.enabled) {
+    const list = await Society.find(query, projection).sort({ societyName: 1 });
+    return res.json({ data: list });
+  }
+
+  const { page, limit, skip } = pagination;
+  const [list, total] = await Promise.all([
+    Society.find(query, projection).sort({ societyName: 1 }).skip(skip).limit(limit),
+    Society.countDocuments(query),
+  ]);
+
+  return res.json({ data: list, meta: makePaginationMeta(total, page, limit) });
 }

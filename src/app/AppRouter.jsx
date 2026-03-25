@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // ================= SOCIETY =================
 import SocietyLogin from "../modules/society/Login";
+import DairyLogin from "../modules/dairy/Login";
 import ForgotPassword from "../modules/society/ForgotPassword";
 import Dashboard from "../modules/society/Dashboard";
 import MilkCollection from "../modules/society/MilkCollection";
@@ -27,6 +28,13 @@ import Reports from "../modules/bmc/Reports";
 import BMCLogin from "../modules/bmc/Login";
 import BMCLayout from "./layout/BmcLayout";
 import BMCAuthGuard from "../shared/components/BmcAuthGaurd";
+import DairyDashboard from "../modules/dairy/Dashboard";
+import DairyAuthGuard from "../shared/components/DairyAuthGaurd";
+import DairyLayout from "./layout/DairyLayout";
+import DairyRouteSheets from "../modules/dairy/RouteSheets";
+import DairyTankerVerification from "../modules/dairy/TankerVerification";
+import DairyMilkReceipt from "../modules/dairy/MilkReceipt";
+import DairyReports from "../modules/dairy/Reports";
 
 export default function AppRouter() {
   return (
@@ -36,6 +44,8 @@ export default function AppRouter() {
         <Route path="/login" element={<SocietyLogin />} />
         <Route path="/login/society" element={<SocietyLogin />} />
         <Route path="/login/soceity" element={<SocietyLogin />} />
+        <Route path="/login/dairy" element={<DairyLogin />} />
+        <Route path="/dairy/login" element={<DairyLogin />} />
         <Route path="/login/bmc" element={<BMCLogin />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/society/verification" element={<SocietyVerification />} />
@@ -78,6 +88,21 @@ export default function AppRouter() {
 
         {/* ================= BMC ROUTES ================= */}
         <Route path="/bmc/login" element={<BMCLogin />} />
+        <Route
+          path="/dairy"
+          element={
+            <DairyAuthGuard>
+              <DairyLayout />
+            </DairyAuthGuard>
+          }
+        >
+          <Route index element={<Navigate to="/dairy/dashboard" replace />} />
+          <Route path="dashboard" element={<DairyDashboard />} />
+          <Route path="route-sheets" element={<DairyRouteSheets />} />
+          <Route path="tanker-verification" element={<DairyTankerVerification />} />
+          <Route path="milk-receipt" element={<DairyMilkReceipt />} />
+          <Route path="reports" element={<DairyReports />} />
+        </Route>
 
         <Route
           path="/bmc"

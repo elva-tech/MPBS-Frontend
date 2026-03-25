@@ -1,6 +1,8 @@
 ﻿import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import mongoose from "mongoose";
+import path from "path";
 import { connectDb } from "./config/db.js";
 import { config } from "./config/env.js";
 
@@ -19,6 +21,35 @@ import { applySecurity } from "./middleware/security.js";
 
 const app = express();
 applySecurity(app);
+
+const DB_CONNECT_MAX_RETRIES = Number(process.env.DB_CONNECT_MAX_RETRIES || 15);
+const DB_CONNECT_RETRY_DELAY_MS = Number(process.env.DB_CONNECT_RETRY_DELAY_MS || 2000);
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectDbWithRetry() {
+  for (let attempt = 1; attempt <= DB_CONNECT_MAX_RETRIES; attempt += 1) {
+    try {
+      await connectDb();
+      if (attempt > 1) {
+        console.log(`MongoDB connected after ${attempt} attempts.`);
+      }
+      return;
+    } catch (error) {
+      const message = error?.message || String(error);
+      const isLastAttempt = attempt === DB_CONNECT_MAX_RETRIES;
+      console.error(`MongoDB connection failed (${attempt}/${DB_CONNECT_MAX_RETRIES}): ${message}`);
+
+      if (isLastAttempt) {
+        throw error;
+      }
+
+      await sleep(DB_CONNECT_RETRY_DELAY_MS);
+    }
+  }
+}
 
 function isAllowedDevelopmentOrigin(origin) {
   try {
@@ -48,7 +79,8 @@ app.use(
   })
 );
 app.use(express.json({ limit: "2mb" }));
-app.use(morgan("dev"));
+app.use(morgan(config.isProduction ? "combined" : "dev"));
+app.use("/files", express.static(path.resolve(process.cwd(), "public", "uploads")));
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
@@ -65,14 +97,55 @@ app.use("/reports", reportRoutes);
 app.use("/uploads", uploadRoutes);
 
 app.use((err, req, res, next) => {
+  if (err?.name === "MulterError") {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res
+        .status(413)
+        .json({ message: `File too large. Max allowed size is ${config.uploadMaxMb} MB` });
+    }
+    return res.status(400).json({ message: err.message || "Upload error" });
+  }
   console.error(err);
   res.status(500).json({ message: "Server error" });
 });
 
 const start = async () => {
-  await connectDb();
+  await connectDbWithRetry();
   const server = app.listen(config.port, () => {
     console.log(`API listening on :${config.port}`);
+  });
+
+  let shuttingDown = false;
+
+  const shutdown = async (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`Received ${signal}. Shutting down gracefully...`);
+
+    await new Promise((resolve) => {
+      server.close((err) => {
+        if (err) {
+          console.error("Error while closing HTTP server:", err);
+        }
+        resolve();
+      });
+    });
+
+    try {
+      await mongoose.connection.close(false);
+    } catch (err) {
+      console.error("Error while closing MongoDB connection:", err);
+    }
+
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => {
+    shutdown("SIGINT");
+  });
+
+  process.on("SIGTERM", () => {
+    shutdown("SIGTERM");
   });
 
   server.on("error", (error) => {
@@ -87,4 +160,16 @@ const start = async () => {
   });
 };
 
-start();
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error);
+  process.exit(1);
+});
+
+start().catch((error) => {
+  console.error("Fatal startup error:", error);
+  process.exit(1);
+});

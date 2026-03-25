@@ -2,6 +2,10 @@ import http from "node:http";
 import { spawn, spawnSync } from "node:child_process";
 
 const PORT = Number(process.env.PORT || 4000);
+const RESTART_DELAY_MS = Number(process.env.DEV_RESTART_DELAY_MS || 3000);
+
+let stopping = false;
+let activeChild = null;
 
 function isHealthy(port) {
   return new Promise((resolve) => {
@@ -53,16 +57,45 @@ async function main() {
     return;
   }
 
-  const child = spawn(process.execPath, ["--watch", "src/server.js"], {
-    stdio: "inherit",
+  process.on("SIGINT", () => {
+    stopping = true;
+    if (activeChild) activeChild.kill("SIGINT");
   });
 
-  child.on("exit", (code) => {
-    process.exit(code ?? 0);
+  process.on("SIGTERM", () => {
+    stopping = true;
+    if (activeChild) activeChild.kill("SIGTERM");
   });
 
-  process.on("SIGINT", () => child.kill("SIGINT"));
-  process.on("SIGTERM", () => child.kill("SIGTERM"));
+  while (!stopping) {
+    const child = spawn(process.execPath, ["--watch", "src/server.js"], {
+      stdio: "inherit",
+    });
+
+    activeChild = child;
+
+    const exitCode = await new Promise((resolve) => {
+      child.on("exit", (code) => {
+        resolve(code ?? 0);
+      });
+    });
+
+    activeChild = null;
+
+    if (stopping) {
+      process.exit(exitCode);
+      return;
+    }
+
+    const nowHealthy = await isHealthy(PORT);
+    if (nowHealthy) {
+      process.exit(0);
+      return;
+    }
+
+    console.error(`Backend process exited (code ${exitCode}). Restarting in ${RESTART_DELAY_MS}ms...`);
+    await new Promise((resolve) => setTimeout(resolve, RESTART_DELAY_MS));
+  }
 }
 
 main();

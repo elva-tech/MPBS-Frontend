@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { login } from "../../utils/api";
+import { dairyUnits } from "./mockData";
 
-export default function AdminLogin() {
+export default function DairyLogin() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+
   const [form, setForm] = useState({
+    dairyUnit: dairyUnits[0],
     username: "",
     password: "",
   });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const dotPattern =
     "data:image/svg+xml;utf8," +
     encodeURIComponent(
@@ -24,49 +25,43 @@ export default function AdminLogin() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
 
     try {
       const res = await login({ username: form.username, password: form.password });
       const user = res?.user;
-      
+
       if (!user) {
-        setError("Login failed - no user data received");
-        setLoading(false);
+        alert("Login failed - no user data received");
         return;
       }
-      
-      if (user.role !== "Admin") {
-        setError(`Not authorized - This is a ${user.role} account. Please use Admin login credentials.`);
-        setLoading(false);
+
+      if (user.role !== "Dairy") {
+        alert(`Not authorized - This is a ${user.role} account. Please use Dairy login credentials.`);
         return;
       }
       localStorage.setItem("auth_token", res.token);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
-      localStorage.setItem("admin_name", user.username);
-      localStorage.setItem("admin_auth", "true");
+      localStorage.setItem("dairy_auth", "true");
+      localStorage.setItem("dairy_name", user.username);
+      localStorage.setItem("dairy_id", user.username);
+      localStorage.setItem("dairy_unit", form.dairyUnit);
       localStorage.removeItem("society_auth");
       localStorage.removeItem("society_name");
       localStorage.removeItem("society_id");
       localStorage.removeItem("bmc_auth");
       localStorage.removeItem("bmc_name");
       localStorage.removeItem("bmc_id");
-      navigate("/admin/dashboard");
+      navigate("/dairy/dashboard");
     } catch (err) {
-      setError(err.message || "Login failed");
-    } finally {
-      setLoading(false);
+      alert(err.message || "Invalid Username or Password");
     }
   };
 
   return (
     <div className="min-h-screen bg-[#2e5d7b] text-slate-800 caret-transparent">
       <div className="grid min-h-screen items-stretch lg:grid-cols-[0.6fr_0.4fr]">
-        {/* Left Panel */}
         <div className="relative hidden overflow-hidden bg-[#2b5874] lg:flex lg:items-center lg:justify-start lg:pl-24">
-          {/* Diamond lattice pattern */}
           <div
             className="pointer-events-none absolute left-0 top-0 h-64 w-80"
             style={{
@@ -93,7 +88,6 @@ export default function AdminLogin() {
           </div>
         </div>
 
-        {/* Right Panel */}
         <div className="flex h-full items-center justify-center bg-[#f7f7f7] px-6 py-12">
           <div className="w-full max-w-[440px] rounded-[18px] border border-[#e7e7e7] bg-white px-9 py-8 shadow-[0_16px_32px_rgba(15,23,42,0.12)]">
             <div className="flex justify-center">
@@ -103,20 +97,27 @@ export default function AdminLogin() {
                 className="h-14 object-contain"
               />
             </div>
+            <p className="mt-3 text-center text-[18px] font-bold tracking-wide text-[#1E4B6B]">RBKVMUL</p>
 
-            <h2 className="mt-5 text-center text-[22px] font-semibold text-slate-800">
-              Welcome to Admin
-            </h2>
+            <h2 className="mt-5 text-center text-[22px] font-semibold text-slate-800">Dairy Login</h2>
             <p className="mt-1.5 text-center text-[13.5px] text-slate-500">
-              Enter your credentials to continue
+              Milk Receipt &amp; Quality Verification
             </p>
 
-            {error && (
-              <p className="mt-3 text-center text-[13px] text-red-600">{error}</p>
-            )}
-
             <form onSubmit={handleSubmit} className="mt-7 space-y-4">
-              {/* Username */}
+              <select
+                name="dairyUnit"
+                value={form.dairyUnit}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-[#d7dbe3] bg-white px-4 py-[11px] text-[13.5px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2e5d7b]"
+              >
+                {dairyUnits.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
+
               <input
                 type="text"
                 name="username"
@@ -125,10 +126,8 @@ export default function AdminLogin() {
                 onChange={handleChange}
                 autoComplete="username"
                 className="w-full rounded-lg border border-[#d7dbe3] bg-white px-4 py-[11px] text-[13.5px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2e5d7b]"
-                required
               />
 
-              {/* Password */}
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -138,7 +137,6 @@ export default function AdminLogin() {
                   onChange={handleChange}
                   autoComplete="current-password"
                   className="w-full rounded-lg border border-[#d7dbe3] bg-white px-4 py-[11px] pr-11 text-[13.5px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2e5d7b]"
-                  required
                 />
                 <button
                   type="button"
@@ -185,9 +183,8 @@ export default function AdminLogin() {
                 </button>
               </div>
 
-              {/* Remember Me + Forgot Password */}
               <div className="flex items-center justify-between pt-1 text-[13px] text-slate-500">
-                <label className="flex cursor-pointer items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-[#b5b9c2] text-[#2e5d7b] focus:ring-[#2e5d7b]"
@@ -204,10 +201,9 @@ export default function AdminLogin() {
 
               <button
                 type="submit"
-                disabled={loading}
-                className="mt-2 w-full rounded-lg bg-[#2e5d7b] py-[11px] text-[14px] font-semibold text-white shadow-[0_10px_18px_rgba(46,93,123,0.22)] transition hover:bg-[#264d66] disabled:cursor-not-allowed disabled:opacity-70"
+                className="mt-2 w-full rounded-lg bg-[#2e5d7b] py-[11px] text-[14px] font-semibold text-white shadow-[0_10px_18px_rgba(46,93,123,0.22)] transition hover:bg-[#264d66]"
               >
-                {loading ? "Logging in..." : "Submit"}
+                Login
               </button>
             </form>
           </div>
