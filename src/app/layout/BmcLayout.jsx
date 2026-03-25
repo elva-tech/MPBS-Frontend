@@ -8,6 +8,16 @@ export default function BMCLayout() {
   const handleLogout = () => {
     localStorage.removeItem("bmc_auth");
     localStorage.removeItem("bmc_name");
+    localStorage.removeItem("bmc_id");
+    localStorage.removeItem("bmc_user_id");
+    localStorage.removeItem("bmc_token");
+
+    if (localStorage.getItem("user_role") === "BMC") {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user_role");
+      localStorage.removeItem("user_id");
+    }
+
     navigate("/login");
   };
 
@@ -15,6 +25,7 @@ export default function BMCLayout() {
     { label: "Dashboard", to: "/bmc/dashboard", icon: "dashboard" },
     { label: "Society Milk Verification", to: "/bmc/verification", icon: "milk" },
     { label: "Truck Sheet", to: "/bmc/truck-sheet", icon: "truck" },
+    { label: "Complaints", to: "/bmc/complaints", icon: "complaint" },
     ...(showCommentsNav
       ? [{ label: "Comments", to: "/bmc/reports", icon: "report" }]
       : []),
@@ -50,6 +61,14 @@ export default function BMCLayout() {
         <path
           fill="currentColor"
           d="M6 2h9l5 5v15H6V2Zm8 1.5V8h4.5L14 3.5ZM8 12h10v2H8v-2Zm0 4h10v2H8v-2Zm0-8h6v2H8V8Z"
+        />
+      </svg>
+    ),
+    complaint: (
+      <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm1 15h-2v-2h2v2Zm0-4h-2V7h2v6Z"
         />
       </svg>
     ),

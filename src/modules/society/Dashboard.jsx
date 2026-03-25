@@ -80,7 +80,7 @@ export default function Dashboard() {
   // Loading state
   if (loading) {
     return (
-      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
+      <div className="bg-[#EFF5FF] min-h-screen p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E4B6B]"></div>
           <p className="mt-4 text-[#5B6B7F]">Loading dashboard data...</p>
@@ -92,13 +92,13 @@ export default function Dashboard() {
   // Error state
   if (error) {
     return (
-      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
+      <div className="bg-[#EFF5FF] min-h-screen p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-lg mb-4">?? Error Loading Dashboard</div>
           <p className="text-[#5B6B7F] mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[#1E4B6B] text-white rounded-lg hover:bg-[#162d47]"
+            className="px-4 py-2 bg-[#C7CCD4] text-[#1E4B6B] rounded-lg hover:bg-[#C7CCD4]"
           >
             Retry
           </button>
@@ -110,7 +110,7 @@ export default function Dashboard() {
   // Fallback for missing summary data
   if (!summary) {
     return (
-      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
+      <div className="bg-[#EFF5FF] min-h-screen p-6 flex items-center justify-center">
         <p className="text-[#5B6B7F]">No data available</p>
       </div>
     );
@@ -237,7 +237,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 text-[#0F1E33] select-none cursor-default font-bold">
+    <div className="bg-[#EFF5FF] min-h-screen p-6 text-[#0F1E33] select-none cursor-default font-bold">
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
@@ -263,7 +263,7 @@ export default function Dashboard() {
       {/* TOP STATS */}
       <div className="flex flex-nowrap items-center gap-4 mb-8">
         {/* Total Milk */}
-        <div className="border border-[#D7E4FF] rounded-lg p-3 w-60 h-24 bg-[#F7FAFF] shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
+        <div className="border border-[#D7E4FF] rounded-lg p-3 w-60 h-24 bg-white shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
           <div className="w-11 h-11 rounded-md bg-[#EAF1FF] border border-[#D7E4FF] flex items-center justify-center text-[#1E4B6B]"><svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.7 6.3 8.4a8 8 0 1 0 11.4 0L12 2.7z" /></svg></div>
           <div>
             <div className="text-[13px] text-[#5B6B7F] font-medium">Today's Total Milk</div>
@@ -272,7 +272,7 @@ export default function Dashboard() {
         </div>
 
         {/* Total Farmers */}
-        <div className="border border-[#CFE0FF] rounded-lg p-3 w-60 h-24 bg-[#F3F7FF] shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
+        <div className="border border-[#CFE0FF] rounded-lg p-3 w-60 h-24 bg-white shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
           <div className="w-11 h-11 rounded-md bg-[#EAF1FF] border border-[#DCE8FF] flex items-center justify-center text-[#1E4B6B]"><svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="7" r="4" /><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></div>
           <div>
             <div className="text-[13px] text-[#5B6B7F] font-medium">Total Farmers</div>
@@ -281,9 +281,9 @@ export default function Dashboard() {
         </div>
 
         {/* Morning / Evening */}
-        <div className="border border-[#D7E4FF] rounded-lg p-3 w-64 h-24 bg-[#F7FAFF] shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
+        <div className="border border-[#D7E4FF] rounded-lg p-3 w-64 h-24 bg-white shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
           <div className="w-11 h-11 rounded-md bg-[#EAF1FF] border border-[#D7E4FF] flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full bg-[#1E4B6B] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[#C7CCD4] flex items-center justify-center">
               <svg className="w-4.5 h-4.5 text-[#EAF1FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <circle cx="12" cy="12" r="7.5" />
                 <path d="M12 7v5l3 2" />
@@ -328,7 +328,7 @@ export default function Dashboard() {
         </div>
 
         {/* Buffalo / Cow */}
-        <div className="border border-[#CFE3FF] rounded-lg p-3 w-64 h-24 bg-[#F3F7FF] shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
+        <div className="border border-[#CFE3FF] rounded-lg p-3 w-64 h-24 bg-white shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
           <div className="w-11 h-11 rounded-md bg-[#EAF1FF] border border-[#DCE8FF] flex items-center justify-center text-[#1E4B6B]">
             <svg className="w-6 h-6" viewBox="0 0 64 64" aria-hidden="true">
               <path
@@ -398,7 +398,7 @@ export default function Dashboard() {
 
         <button
           onClick={handleDownloadDispatchSheet}
-          className="ml-auto bg-[#1E4B6B] hover:bg-[#163A54] text-white px-6 py-2.5 rounded-md font-semibold shadow-[0_8px_18px_rgba(15,41,74,0.25)] flex items-center gap-2 whitespace-nowrap"
+          className="ml-auto bg-[#C7CCD4] hover:bg-[#C7CCD4] text-[#1E4B6B] px-6 py-2.5 rounded-md font-semibold shadow-[0_8px_18px_rgba(15,41,74,0.25)] flex items-center gap-2 whitespace-nowrap"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 3v12" />
@@ -412,7 +412,7 @@ export default function Dashboard() {
       {/* MAIN GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* MILK BREAKDOWN */}
-        <div className="border border-[#D7E4FF] rounded-xl p-5 bg-[#F7FAFF] shadow-[0_8px_18px_rgba(15,41,74,0.08)] flex flex-col h-full">
+        <div className="border border-[#D7E4FF] rounded-xl p-5 bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] flex flex-col h-full">
           <h3 className="text-sm font-semibold text-[#1E4B6B]">Milk Breakdown</h3>
           <div className="mt-2 flex items-center gap-4 text-[11px] text-[#6B7FA0]">
             {milkBreakdown.map((item, index) => (
@@ -447,7 +447,7 @@ export default function Dashboard() {
         </div>
 
         {/* FEED */}
-        <div className="border border-[#D7E4FF] rounded-xl bg-[#F7FAFF] shadow-[0_8px_18px_rgba(15,41,74,0.08)] overflow-hidden flex flex-col h-full">
+        <div className="border border-[#D7E4FF] rounded-xl bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] overflow-hidden flex flex-col h-full">
           <div className="p-5">
             <h3 className="text-sm font-semibold text-[#1E4B6B]">Cattle Feed & Mineral Mix</h3>
 
@@ -507,7 +507,7 @@ export default function Dashboard() {
           <div className="border-t border-[#D7E4FF] p-4 mt-auto">
             <button
               onClick={handleDownloadDashboard}
-              className="mx-auto border border-[#1E4B6B] text-[#1E4B6B] px-4 py-2 rounded font-semibold flex items-center justify-center gap-2 bg-[#F1F6FF]"
+              className="mx-auto border border-[#1E4B6B] text-[#1E4B6B] px-4 py-2 rounded font-semibold flex items-center justify-center gap-2 bg-white"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 3v12" />
@@ -520,7 +520,7 @@ export default function Dashboard() {
         </div>
 
         {/* REVENUE */}
-        <div className="border border-[#D7E4FF] rounded-xl bg-[#F7FAFF] shadow-[0_8px_18px_rgba(15,41,74,0.08)] overflow-hidden flex flex-col h-full">
+        <div className="border border-[#D7E4FF] rounded-xl bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] overflow-hidden flex flex-col h-full">
           <div className="p-5">
             <h3 className="text-sm font-semibold text-[#1E4B6B]">Revenue</h3>
 
@@ -576,7 +576,7 @@ export default function Dashboard() {
           <div className="border-t border-[#D7E4FF] p-4 mt-auto">
             <button
               onClick={handleDownloadDashboard}
-              className="mx-auto border border-[#1E4B6B] text-[#1E4B6B] px-4 py-2 rounded font-semibold flex items-center justify-center gap-2 bg-[#F1F6FF]"
+              className="mx-auto border border-[#1E4B6B] text-[#1E4B6B] px-4 py-2 rounded font-semibold flex items-center justify-center gap-2 bg-white"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 3v12" />

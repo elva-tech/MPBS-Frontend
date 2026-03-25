@@ -14,6 +14,16 @@ export default function Layout() {
   const handleLogout = () => {
     localStorage.removeItem("society_auth");
     localStorage.removeItem("society_name");
+    localStorage.removeItem("society_id");
+    localStorage.removeItem("society_user_id");
+    localStorage.removeItem("society_token");
+
+    if (localStorage.getItem("user_role") === "Society") {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user_role");
+      localStorage.removeItem("user_id");
+    }
+
     navigate("/login");
   };
 
@@ -203,6 +213,27 @@ export default function Layout() {
               />
             </svg>
             <span>Report</span>
+          </NavLink>
+
+          <NavLink
+            to="/complaints"
+            className={({ isActive }) =>
+              `block px-4 py-3 rounded hover:bg-[#EAF1FF] flex items-center gap-3 ${
+                isActive ? "bg-[#1E4B6B] text-white" : "text-[#1E4B6B]"
+              }`
+            }
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+              className="shrink-0"
+            >
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm1 15h-2v-2h2v2Zm0-4h-2V7h2v6Z" />
+            </svg>
+            <span>Complaints</span>
           </NavLink>
 
         </nav>

@@ -43,16 +43,12 @@ export default function AdminLogin() {
         return;
       }
       localStorage.setItem("auth_token", res.token);
+      localStorage.setItem("admin_token", res.token);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
+      localStorage.setItem("admin_user_id", user.id);
       localStorage.setItem("admin_auth", "true");
-      localStorage.removeItem("society_auth");
-      localStorage.removeItem("society_name");
-      localStorage.removeItem("society_id");
-      localStorage.removeItem("bmc_auth");
-      localStorage.removeItem("bmc_name");
-      localStorage.removeItem("bmc_id");
-      navigate("/admin/users");
+      navigate("/admin/requests");
     } catch (err) {
       setError(err.message || "Login failed");
     } finally {

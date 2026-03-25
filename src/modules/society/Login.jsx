@@ -38,14 +38,13 @@ export default function SocietyLogin() {
         return;
       }
       localStorage.setItem("auth_token", res.token);
+      localStorage.setItem("society_token", res.token);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
+      localStorage.setItem("society_user_id", user.id);
       localStorage.setItem("society_auth", "true");
       localStorage.setItem("society_name", user.username);
       localStorage.setItem("society_id", user.username);
-      localStorage.removeItem("bmc_auth");
-      localStorage.removeItem("bmc_name");
-      localStorage.removeItem("bmc_id");
       navigate("/");
     } catch (err) {
       alert(err.message || "Invalid Username or Password");

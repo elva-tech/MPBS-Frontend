@@ -6,12 +6,14 @@ import ForgotPassword from "../modules/society/ForgotPassword";
 import Dashboard from "../modules/society/Dashboard";
 import MilkCollection from "../modules/society/MilkCollection";
 import RateSheet from "../modules/society/RateSheet";
+import SocietyComplaints from "../modules/society/Complaints";
 import SocietyVerification from "../modules/society/Verification";
 import Layout from "./layout/Layout";
 import AuthGuard from "../shared/components/AuthGaurd";
 
 // ================= ADMIN =================
 import AdminLogin from "../modules/admin/Login";
+import AdminDashboard from "../modules/admin/Dashboard";
 import UserManagement from "../modules/admin/UserManagement";
 import Requests from "../modules/admin/Requests";
 import Notifications from "../modules/admin/Notifications";
@@ -23,6 +25,7 @@ import MilkVerification from "../modules/bmc/SocietyMilkVerification";
 import BmcDashboard from "../modules/bmc/Dashboard";
 import TruckSheet from "../modules/bmc/TruckSheet";
 import Reports from "../modules/bmc/Reports";
+import BmcComplaints from "../modules/bmc/Complaints";
 import BMCLogin from "../modules/bmc/Login";
 import BMCLayout from "./layout/BmcLayout";
 import BMCAuthGuard from "../shared/components/BmcAuthGaurd";
@@ -54,6 +57,7 @@ export default function AppRouter() {
           <Route index element={<Dashboard />} />
           <Route path="collection" element={<MilkCollection />} />
           <Route path="ratesheet" element={<RateSheet />} />
+          <Route path="complaints" element={<SocietyComplaints />} />
         </Route>
 
         {/* ================= ADMIN ROUTES ================= */}
@@ -68,7 +72,8 @@ export default function AppRouter() {
             </AdminAuthGuard>
           }
         >
-          <Route index element={<Navigate to="/admin/users" replace />} />
+          <Route index element={<Navigate to="/admin/requests" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="requests" element={<Requests />} />
           <Route path="notifications" element={<Notifications />} />
@@ -90,6 +95,7 @@ export default function AppRouter() {
           <Route path="verification" element={<MilkVerification />} />
           <Route path="truck-sheet" element={<TruckSheet />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="complaints" element={<BmcComplaints />} />
         </Route>
 
         {/* ================= FALLBACK ================= */}
