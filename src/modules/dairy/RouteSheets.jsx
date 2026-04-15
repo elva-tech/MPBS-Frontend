@@ -1,6 +1,14 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getShipments, setActiveShipmentId } from "./state";
+import { getShipmentStatusLabel, getShipments, setActiveShipmentId, updateShipment } from "./state";
+
+function statusTone(status) {
+  if (status === "approved") return "bg-[#EAF7EE] text-[#1F7A3A]";
+  if (status === "penalty") return "bg-[#FFF6E8] text-[#9A6200]";
+  if (status === "rejected") return "bg-[#FFF1F1] text-[#B42318]";
+  if (status === "in_verification") return "bg-[#EEF4FF] text-[#1E4B6B]";
+  return "bg-[#F1F5F9] text-[#475569]";
+}
 
 export default function DairyRouteSheets() {
   const navigate = useNavigate();
@@ -16,17 +24,22 @@ export default function DairyRouteSheets() {
           milkType: stop.milkType,
           expected: stop.expected,
           shipmentId: shipment.id,
+          status: shipment.status,
         }))
       ),
     [shipments]
   );
   const totalExpected = useMemo(() => routeSheetRows.reduce((sum, row) => sum + row.expected, 0), [routeSheetRows]);
 
-  const firstShipmentId = shipments[0]?.id || "";
+  const nextShipmentId = shipments.find((item) => item.status === "pending")?.id || shipments[0]?.id || "";
 
   const handleStartVerification = () => {
-    if (firstShipmentId) {
-      setActiveShipmentId(firstShipmentId);
+    if (nextShipmentId) {
+      updateShipment(nextShipmentId, (current) => ({
+        ...current,
+        status: current.status === "pending" ? "in_verification" : current.status,
+      }));
+      setActiveShipmentId(nextShipmentId);
     }
     navigate("/dairy/tanker-verification");
   };
@@ -47,6 +60,7 @@ export default function DairyRouteSheets() {
                 <th className="px-4 py-3">Societies</th>
                 <th className="px-4 py-3">Milk Type</th>
                 <th className="px-4 py-3">Expected Qty</th>
+                <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -58,6 +72,11 @@ export default function DairyRouteSheets() {
                   <td className="px-4 py-3">{row.societies}</td>
                   <td className="px-4 py-3">{row.milkType}</td>
                   <td className="px-4 py-3">{row.expected} L</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
+                      {getShipmentStatusLabel(row.status)}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

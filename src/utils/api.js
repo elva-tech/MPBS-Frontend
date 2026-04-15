@@ -126,6 +126,17 @@ export function getAdminDashboard() {
   return request("/dashboards/admin");
 }
 
+export function getDairyDashboard(params = {}) {
+  const search = new URLSearchParams();
+  if (params.dairyUnit) search.set("dairyUnit", params.dairyUnit);
+  if (params.date) search.set("date", params.date);
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  if (params.session) search.set("session", params.session);
+  const qs = search.toString();
+  return request(`/dashboards/dairy${qs ? `?${qs}` : ""}`);
+}
+
 export function login(body) {
   return request("/auth/login", {
     method: "POST",

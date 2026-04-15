@@ -91,6 +91,26 @@ function isEntryGoodQuality(entry) {
   return isGoodQualityByThreshold(entry);
 }
 
+function normalizeSession(session) {
+  if (!session) return "";
+  const value = String(session).trim().toUpperCase();
+  if (value === "M" || value === "MORNING") return "M";
+  if (value === "E" || value === "EVENING") return "E";
+  return "";
+}
+
+function toShiftLabel(sessionCode) {
+  return sessionCode === "E" ? "Evening" : "Morning";
+}
+
+function getTodayIsoDate() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function escapeRegExp(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function getSocietyDashboard(req, res) {
   const societyId = req.query.societyId || "";
   const fromDate = req.query.from || "";
@@ -230,6 +250,175 @@ export async function getBmcDashboard(req, res) {
       milkProcuredByMonth: procuredByMonth,
       milkRejectedByMonth: rejectedByMonth,
       dispatchStats,
+    },
+  });
+}
+
+export async function getDairyDashboard(req, res) {
+  const today = getTodayIsoDate();
+  const selectedDate = String(req.query.date || "").trim();
+  const targetDate = selectedDate || today;
+  const session = normalizeSession(req.query.session);
+  const dairyUnit = String(req.query.dairyUnit || "").trim();
+
+  let societies = [];
+  if (dairyUnit) {
+    const regex = new RegExp(escapeRegExp(dairyUnit), "i");
+    societies = await Society.find(
+      {
+        $or: [{ route: dairyUnit }, { route: regex }, { district: regex }, { bmcId: regex }],
+      },
+      "societyId district route bmcId"
+    );
+  }
+
+  if (!dairyUnit || !societies.length) {
+    societies = await Society.find({}, "societyId district route bmcId");
+  }
+
+  const societyIds = societies.map((s) => s.societyId).filter(Boolean);
+
+  if (!societyIds.length) {
+    return res.json({
+      data: {
+        filters: {
+          dairyUnit,
+          date: targetDate,
+          session,
+        },
+        cards: {
+          milkReceived: 0,
+          tankerCount: 0,
+          pendingVerification: 0,
+          totalShortage: 0,
+        },
+        milkTypeDistribution: [
+          { label: "Cow Milk", value: 0 },
+          { label: "Buffalo Milk", value: 0 },
+        ],
+        districtProcurement: [],
+        qualityStatus: [
+          { label: "Approved Milk", value: 0 },
+          { label: "Rejected / Penalised", value: 0 },
+        ],
+      },
+    });
+  }
+
+  const entryQuery = {
+    societyId: { $in: societyIds },
+    date: targetDate,
+  };
+  const verificationQuery = {
+    societyId: { $in: societyIds },
+    date: targetDate,
+  };
+
+  if (session) {
+    entryQuery.session = session;
+    verificationQuery.session = session;
+  }
+
+  const [entries, verifications] = await Promise.all([
+    MilkEntry.find(entryQuery, "societyId date session milkType qty"),
+    Verification.find(verificationQuery, "societyId date session verifyChoice entries bmcEntries"),
+  ]);
+
+  const societyMap = new Map(societies.map((s) => [s.societyId, s]));
+
+  let milkReceived = 0;
+  let cowQty = 0;
+  let buffaloQty = 0;
+  const districtMap = new Map();
+  const shipmentSet = new Set();
+
+  entries.forEach((entry) => {
+    const qty = Number(entry.qty || 0);
+    milkReceived += qty;
+
+    if (entry.milkType === "Cow") cowQty += qty;
+    if (entry.milkType === "Buffalo") buffaloQty += qty;
+
+    const shipmentKey = `${entry.societyId}::${entry.date}::${entry.session}`;
+    shipmentSet.add(shipmentKey);
+
+    const district = districtFromSociety(societyMap.get(entry.societyId));
+    districtMap.set(district, (districtMap.get(district) || 0) + qty);
+  });
+
+  let totalShortage = 0;
+  const verifiedSet = new Set();
+  let approvedCount = 0;
+  let rejectedOrPenalisedCount = 0;
+
+  verifications.forEach((verification) => {
+    const verificationKey = `${verification.societyId}::${verification.date}::${verification.session}`;
+    verifiedSet.add(verificationKey);
+
+    if (verification.verifyChoice === "YES") {
+      approvedCount += 1;
+    } else {
+      rejectedOrPenalisedCount += 1;
+      if (Array.isArray(verification.entries) && Array.isArray(verification.bmcEntries)) {
+        verification.entries.forEach((entry, idx) => {
+          const bmcEntry = verification.bmcEntries[idx];
+          if (!bmcEntry) return;
+          const sourceQty = Number(entry?.qty || 0);
+          const bmcQty = Number(bmcEntry?.qty || 0);
+          totalShortage += Math.max(sourceQty - bmcQty, 0);
+        });
+      }
+    }
+  });
+
+  const totalMilkTypeQty = cowQty + buffaloQty;
+  const milkTypeDistribution = [
+    {
+      label: "Cow Milk",
+      value: totalMilkTypeQty > 0 ? round((cowQty / totalMilkTypeQty) * 100, 2) : 0,
+    },
+    {
+      label: "Buffalo Milk",
+      value: totalMilkTypeQty > 0 ? round((buffaloQty / totalMilkTypeQty) * 100, 2) : 0,
+    },
+  ];
+
+  const districtProcurement = Array.from(districtMap.entries())
+    .map(([district, liters]) => ({ district, liters: round(liters, 2) }))
+    .sort((a, b) => b.liters - a.liters);
+
+  const qualityTotal = approvedCount + rejectedOrPenalisedCount;
+  const qualityStatus = [
+    {
+      label: "Approved Milk",
+      value: qualityTotal > 0 ? round((approvedCount / qualityTotal) * 100, 2) : 0,
+    },
+    {
+      label: "Rejected / Penalised",
+      value: qualityTotal > 0 ? round((rejectedOrPenalisedCount / qualityTotal) * 100, 2) : 0,
+    },
+  ];
+
+  const shiftOptions = ["All", "Morning", "Evening"];
+  const availableShiftSet = new Set(entries.map((entry) => toShiftLabel(entry.session)));
+
+  return res.json({
+    data: {
+      filters: {
+        dairyUnit,
+        date: targetDate,
+        session,
+      },
+      shiftOptions: shiftOptions.filter((label) => label === "All" || availableShiftSet.has(label)),
+      cards: {
+        milkReceived: round(milkReceived, 2),
+        tankerCount: shipmentSet.size,
+        pendingVerification: Math.max(shipmentSet.size - verifiedSet.size, 0),
+        totalShortage: round(totalShortage, 2),
+      },
+      milkTypeDistribution,
+      districtProcurement,
+      qualityStatus,
     },
   });
 }

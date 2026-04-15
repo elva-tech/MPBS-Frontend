@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { getDashboardMetrics, getShipments } from "./state";
+import { getDairyDashboard } from "../../utils/api";
 
 function Card({ label, value }) {
   const toneMap = {
@@ -36,70 +36,98 @@ function Donut({ data, colors = ["#1E4B6B", "#9DB5CC"] }) {
   );
 }
 
-function safePercent(value, total) {
-  if (!total) return 0;
-  return Math.round((value / total) * 100);
-}
-
 export default function DairyDashboard() {
-  const shipments = useMemo(() => getShipments(), []);
-  const metrics = useMemo(() => getDashboardMetrics(), []);
+  const [selectedShift, setSelectedShift] = useState("All");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [dashboardData, setDashboardData] = useState({
+    cards: {
+      milkReceived: 0,
+      tankerCount: 0,
+      pendingVerification: 0,
+      totalShortage: 0,
+    },
+    milkTypeDistribution: [
+      { label: "Cow Milk", value: 0 },
+      { label: "Buffalo Milk", value: 0 },
+    ],
+    districtProcurement: [],
+    qualityStatus: [
+      { label: "Approved Milk", value: 0 },
+      { label: "Rejected / Penalised", value: 0 },
+    ],
+    shiftOptions: ["All", "Morning", "Evening"],
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDashboard() {
+      setLoading(true);
+      setError("");
+      try {
+        const dairyUnit = localStorage.getItem("dairy_unit") || "";
+        const sessionMap = { Morning: "M", Evening: "E" };
+        const today = new Date().toISOString().slice(0, 10);
+
+        const params = { date: selectedDate || today };
+        if (dairyUnit) params.dairyUnit = dairyUnit;
+        if (selectedShift !== "All") {
+          params.session = sessionMap[selectedShift] || "";
+        }
+
+        const response = await getDairyDashboard(params);
+        if (!cancelled) {
+          setDashboardData((prev) => ({
+            ...prev,
+            ...(response?.data || {}),
+            shiftOptions: response?.data?.shiftOptions?.length
+              ? response.data.shiftOptions
+              : ["All", "Morning", "Evening"],
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.message || "Failed to load dairy dashboard data.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate, selectedShift]);
+
+  const shiftOptions = useMemo(() => {
+    const base = ["All", "Morning", "Evening"];
+    return dashboardData.shiftOptions?.length ? dashboardData.shiftOptions : base;
+  }, [dashboardData.shiftOptions]);
 
   const dashboardCards = useMemo(
     () => [
-      { label: "Milk Received Today", value: `${metrics.milkReceived.toLocaleString()} L` },
-      { label: "Tankers Received", value: String(metrics.tankerCount) },
-      { label: "Pending Verification", value: String(metrics.pendingCount) },
-      { label: "Total Shortage Today", value: `${metrics.totalShortage.toLocaleString()} L` },
+      {
+        label: "Milk Received Today",
+        value: `${Number(dashboardData.cards?.milkReceived || 0).toLocaleString()} L`,
+      },
+      { label: "Tankers Received", value: String(dashboardData.cards?.tankerCount || 0) },
+      { label: "Pending Verification", value: String(dashboardData.cards?.pendingVerification || 0) },
+      {
+        label: "Total Shortage Today",
+        value: `${Number(dashboardData.cards?.totalShortage || 0).toLocaleString()} L`,
+      },
     ],
-    [metrics]
+    [dashboardData.cards]
   );
 
-  const milkTypeDistribution = useMemo(() => {
-    let cow = 0;
-    let buffalo = 0;
-
-    shipments.forEach((shipment) => {
-      (shipment.stops || []).forEach((stop) => {
-        const volume = Number(stop.received) || 0;
-        if ((stop.milkType || "").toLowerCase().includes("buffalo")) {
-          buffalo += volume;
-        } else {
-          cow += volume;
-        }
-      });
-    });
-
-    const total = cow + buffalo;
-    return [
-      { label: "Cow Milk", value: safePercent(cow, total) },
-      { label: "Buffalo Milk", value: safePercent(buffalo, total) },
-    ];
-  }, [shipments]);
-
-  const districtProcurement = useMemo(() => {
-    const districtMap = new Map();
-
-    shipments.forEach((shipment) => {
-      (shipment.stops || []).forEach((stop) => {
-        const district = (stop.bmc || "Unknown").split(" ")[0] || "Unknown";
-        const current = districtMap.get(district) || 0;
-        districtMap.set(district, current + (Number(stop.received) || 0));
-      });
-    });
-
-    return Array.from(districtMap.entries())
-      .map(([district, liters]) => ({ district, liters }))
-      .sort((a, b) => b.liters - a.liters);
-  }, [shipments]);
-
-  const qualityStatus = useMemo(() => {
-    const total = shipments.length;
-    return [
-      { label: "Good Milk", value: safePercent(metrics.goodCount, total) },
-      { label: "Penalised Milk", value: safePercent(metrics.penalisedCount, total) },
-    ];
-  }, [metrics.goodCount, metrics.penalisedCount, shipments.length]);
+  const milkTypeDistribution = dashboardData.milkTypeDistribution || [];
+  const districtProcurement = dashboardData.districtProcurement || [];
+  const qualityStatus = dashboardData.qualityStatus || [];
 
   const maxDistrictValue = Math.max(...districtProcurement.map((item) => item.liters), 1);
 
@@ -108,11 +136,55 @@ export default function DairyDashboard() {
       <h1 className="text-2xl font-semibold text-[#1E4B6B]">Dairy Dashboard</h1>
       <p className="mt-1 text-sm text-[#5B6B7F]">Operational overview for the current shift.</p>
 
+      {error ? (
+        <div className="mt-4 rounded-lg border border-[#F3C4C4] bg-[#FFF5F5] px-4 py-3 text-sm text-[#A12626]">{error}</div>
+      ) : null}
+
+      <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)] md:grid-cols-3">
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#5B6B7F]">Shift</label>
+          <select
+            value={selectedShift}
+            onChange={(event) => setSelectedShift(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-[#D7E4FF] bg-[#F7FAFF] px-3 py-2 text-sm"
+          >
+            {shiftOptions.map((shift) => (
+              <option key={shift} value={shift}>
+                {shift}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#5B6B7F]">Date</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(event) => setSelectedDate(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-[#D7E4FF] bg-[#F7FAFF] px-3 py-2 text-sm"
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedDate("");
+              setSelectedShift("All");
+            }}
+            className="w-full rounded-lg border border-[#1E4B6B] px-3 py-2 text-sm font-semibold text-[#1E4B6B] hover:bg-[#EEF4FF]"
+          >
+            Clear Filters
+          </button>
+        </div>
+      </div>
+
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {dashboardCards.map((item) => (
           <Card key={item.label} label={item.label} value={item.value} />
         ))}
       </div>
+
+      {loading ? <p className="mt-4 text-sm text-[#5B6B7F]">Loading dashboard data...</p> : null}
 
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <section className="rounded-xl border border-[#D7E4FF] bg-white p-5 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">

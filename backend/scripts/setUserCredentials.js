@@ -6,7 +6,7 @@ import { User } from "../src/models/User.js";
 dotenv.config({ path: new URL("../.env", import.meta.url).pathname });
 
 const MONGO = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/mpbs";
-const ALLOWED_ROLES = new Set(["Admin", "Society", "BMC", "EO", "Dairy", "Other"]);
+const ALLOWED_ROLES = new Set(["Admin", "Society", "BMC", "EO", "Dairy", "Account", "Other"]);
 
 function normalizeRole(inputRole) {
   const role = String(inputRole || "").trim();
@@ -22,7 +22,7 @@ function readArgs() {
 
   if (!username || !password || !role) {
     console.error("Usage: npm run set-user -- <username> <password> <role>");
-    console.error("Allowed roles: Admin, Society, BMC, EO, Dairy, Other");
+    console.error("Allowed roles: Admin, Society, BMC, EO, Dairy, Account, Other");
     process.exit(1);
   }
 

@@ -35,6 +35,16 @@ import DairyRouteSheets from "../modules/dairy/RouteSheets";
 import DairyTankerVerification from "../modules/dairy/TankerVerification";
 import DairyMilkReceipt from "../modules/dairy/MilkReceipt";
 import DairyReports from "../modules/dairy/Reports";
+import AccountLogin from "../modules/account/Login";
+import AccountDashboard from "../modules/account/Dashboard";
+import AccountLayout from "./layout/AccountLayout";
+import AccountAuthGuard from "../shared/components/AccountAuthGaurd";
+import BillingCycles from "../modules/account/BillingCycles";
+import SocietyPayments from "../modules/account/SocietyPayments";
+import Schemes from "../modules/account/Schemes";
+import ClaimsRecoverables from "../modules/account/ClaimsRecoverables";
+import Invoices from "../modules/account/Invoices";
+import AccountReports from "../modules/account/Reports";
 
 export default function AppRouter() {
   return (
@@ -117,6 +127,28 @@ export default function AppRouter() {
           <Route path="verification" element={<MilkVerification />} />
           <Route path="truck-sheet" element={<TruckSheet />} />
           <Route path="reports" element={<Reports />} />
+        </Route>
+
+        {/* ================= ACCOUNT ROUTES ================= */}
+        <Route path="/account/login" element={<AccountLogin />} />
+        <Route path="/login/account" element={<AccountLogin />} />
+
+        <Route
+          path="/account"
+          element={
+            <AccountAuthGuard>
+              <AccountLayout />
+            </AccountAuthGuard>
+          }
+        >
+          <Route index element={<Navigate to="/account/dashboard" replace />} />
+          <Route path="dashboard" element={<AccountDashboard />} />
+          <Route path="billing-cycles" element={<BillingCycles />} />
+          <Route path="society-payments" element={<SocietyPayments />} />
+          <Route path="schemes" element={<Schemes />} />
+          <Route path="claims-recoverables" element={<ClaimsRecoverables />} />
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="reports" element={<AccountReports />} />
         </Route>
 
         {/* ================= FALLBACK ================= */}

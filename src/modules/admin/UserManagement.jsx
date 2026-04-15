@@ -37,7 +37,7 @@ export default function UserManagement() {
         role,
         profile: userData,
       });
-      alert("User added successfully");
+      alert(`${role} user created. Approve it before login.`);
       setShowModal(false);
       await loadUsers();
     } catch (err) {
@@ -65,6 +65,7 @@ export default function UserManagement() {
         <div>
           <h1 className="title">User Management</h1>
           <div className="subtitle">Manage admin, society, BMC, and other user accounts.</div>
+          <div className="subtitle">New Society and BMC accounts are created as Pending until approved here.</div>
         </div>
       </div>
 

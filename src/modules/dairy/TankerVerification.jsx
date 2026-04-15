@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   calculateTotals,
   getActiveShipment,
+  getShipmentStatusLabel,
   isShipmentGoodQuality,
+  QUANTITY_TOLERANCE_PERCENT,
   setActiveShipmentId,
   updateShipment,
 } from "./state";
@@ -19,7 +21,17 @@ export default function DairyTankerVerification() {
     setQualityRows(shipment?.quality || []);
   }, [shipment]);
 
+  useEffect(() => {
+    if (!shipment?.id || shipment.status !== "pending") return;
+    const updated = updateShipment(shipment.id, (current) => ({ ...current, status: "in_verification" }));
+    setShipment(updated);
+  }, [shipment?.id, shipment?.status]);
+
   const totals = useMemo(() => calculateTotals(rows), [rows]);
+  const toleranceLimit = useMemo(
+    () => Math.round(((totals.expected || 0) * QUANTITY_TOLERANCE_PERCENT) / 100),
+    [totals.expected]
+  );
 
   const handleReceivedChange = (index, value) => {
     const nextValue = Number(value);
@@ -48,6 +60,19 @@ export default function DairyTankerVerification() {
     );
   };
 
+  const qualityIssues = useMemo(() => {
+    const fatRow = qualityRows.find((item) => String(item.parameter || "").toLowerCase() === "fat");
+    const snfRow = qualityRows.find((item) => String(item.parameter || "").toLowerCase() === "snf");
+    const fat = Number(fatRow?.dairyTest);
+    const snf = Number(snfRow?.dairyTest);
+    const issues = [];
+    if (Number.isFinite(fat) && fat < 3.5) issues.push("Low Fat");
+    if (Number.isFinite(snf) && snf < 8.5) issues.push("Low SNF");
+    return issues;
+  }, [qualityRows]);
+
+  const shortageBeyondTolerance = totals.shortage > toleranceLimit;
+
   const saveStatus = (status) => {
     if (!shipment?.id) return;
     const updated = updateShipment(shipment.id, (current) => ({
@@ -55,7 +80,19 @@ export default function DairyTankerVerification() {
       stops: rows,
       quality: qualityRows,
       status,
-      discrepancy: status === "approved" ? null : current.discrepancy,
+      discrepancy:
+        status === "approved"
+          ? null
+          : {
+              type: shortageBeyondTolerance ? "Quantity Loss" : qualityIssues[0] ? "Low Fat / SNF" : "Spillage",
+              remarks:
+                shortageBeyondTolerance || qualityIssues.length
+                  ? "Difference detected during dairy verification."
+                  : (current.discrepancy?.remarks || ""),
+              photoName: current.discrepancy?.photoName || "",
+              penaltyRate: current.discrepancy?.penaltyRate || 35,
+              deduction: current.discrepancy?.deduction || 0,
+            },
     }));
     setShipment(updated);
     setActiveShipmentId(updated?.id || shipment.id);
@@ -63,15 +100,23 @@ export default function DairyTankerVerification() {
 
   const handleApprove = () => {
     const isGood = isShipmentGoodQuality({ ...shipment, quality: qualityRows });
-    if (isGood) {
+    if (isGood && !shortageBeyondTolerance) {
+      const confirmed = window.confirm("Confirm tanker approval and send this batch to Accounts?");
+      if (!confirmed) return;
       saveStatus("approved");
       return;
     }
+    const confirmed = window.confirm(
+      "Quantity or quality difference detected. Continue to discrepancy screen for penalty/reject decision?"
+    );
+    if (!confirmed) return;
     saveStatus("penalty");
     navigate("/dairy/milk-receipt");
   };
 
   const handleReject = () => {
+    const confirmed = window.confirm("Confirm tanker batch rejection?");
+    if (!confirmed) return;
     saveStatus("rejected");
     navigate("/dairy/milk-receipt");
   };
@@ -97,6 +142,12 @@ export default function DairyTankerVerification() {
           <div><span className="font-semibold">Route:</span> {shipment.route}</div>
           <div><span className="font-semibold">Arrival Time:</span> {shipment.arrivalTime}</div>
           <div><span className="font-semibold">Transporter:</span> {shipment.transporter}</div>
+          <div>
+            <span className="font-semibold">Status:</span>{" "}
+            <span className="rounded-full bg-[#EEF4FF] px-2 py-1 text-xs font-semibold text-[#1E4B6B]">
+              {getShipmentStatusLabel(shipment.status)}
+            </span>
+          </div>
         </div>
       </section>
 
@@ -144,6 +195,10 @@ export default function DairyTankerVerification() {
           <p><span className="font-semibold">Received:</span> {totals.received} L</p>
           <p className="font-semibold text-[#D84343]">Shortage: {totals.shortage} L</p>
         </div>
+        <p className={`mt-3 text-sm ${shortageBeyondTolerance ? "font-semibold text-[#B42318]" : "text-[#475467]"}`}>
+          Quantity tolerance ({QUANTITY_TOLERANCE_PERCENT}%): {toleranceLimit} L
+          {shortageBeyondTolerance ? " - Exceeded" : " - Within limit"}
+        </p>
       </section>
 
       <section className="mt-4 rounded-xl border border-[#D7E4FF] bg-white p-5 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">

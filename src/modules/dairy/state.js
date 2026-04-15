@@ -4,6 +4,15 @@ const SHIPMENTS_KEY = "dairy_shipments_v1";
 const ACTIVE_SHIPMENT_KEY = "dairy_active_shipment_id";
 export const QUALITY_MIN_FAT = 3.5;
 export const QUALITY_MIN_SNF = 8.5;
+export const QUANTITY_TOLERANCE_PERCENT = 0.5;
+
+const STATUS_LABELS = {
+  pending: "Pending",
+  in_verification: "In Verification",
+  approved: "Approved",
+  penalty: "Penalised",
+  rejected: "Rejected",
+};
 
 function withNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -26,6 +35,7 @@ export function isShipmentGoodQuality(shipment) {
 
 function buildDefaultShipments() {
   const grouped = new Map();
+  const today = new Date().toISOString().slice(0, 10);
 
   routeSheetRows.forEach((row) => {
     const shipmentId = `${row.tankerId}-${row.route}`;
@@ -37,6 +47,8 @@ function buildDefaultShipments() {
         arrivalTime: tankerDetails.arrivalTime || "-",
         transporter: tankerDetails.transporter || "-",
         status: "pending",
+        shift: "Morning",
+        receivedDate: today,
         updatedAt: new Date().toISOString(),
         stops: [],
         quality: qualityTest.map((item) => ({
@@ -60,6 +72,18 @@ function buildDefaultShipments() {
   return Array.from(grouped.values());
 }
 
+function normalizeShipment(item) {
+  if (!item || typeof item !== "object") return null;
+  return {
+    ...item,
+    status: item.status || "pending",
+    shift: item.shift || "Morning",
+    receivedDate: item.receivedDate || new Date().toISOString().slice(0, 10),
+    stops: Array.isArray(item.stops) ? item.stops : [],
+    quality: Array.isArray(item.quality) ? item.quality : [],
+  };
+}
+
 function readShipments() {
   try {
     const raw = localStorage.getItem(SHIPMENTS_KEY);
@@ -78,7 +102,11 @@ function writeShipments(shipments) {
 
 export function getShipments() {
   const existing = readShipments();
-  if (existing && existing.length) return existing;
+  if (existing && existing.length) {
+    const normalized = existing.map(normalizeShipment).filter(Boolean);
+    writeShipments(normalized);
+    return normalized;
+  }
   const defaults = buildDefaultShipments();
   writeShipments(defaults);
   return defaults;
@@ -148,10 +176,10 @@ export function getDashboardMetrics() {
   return {
     milkReceived: totals.milkReceived,
     tankerCount: shipments.length,
-    pendingCount: shipments.filter((item) => item.status === "pending").length,
+    pendingCount: shipments.filter((item) => item.status === "pending" || item.status === "in_verification").length,
     totalShortage: totals.shortages,
-    goodCount: shipments.filter((item) => isShipmentGoodQuality(item)).length,
-    penalisedCount: shipments.filter((item) => !isShipmentGoodQuality(item)).length,
+    approvedCount: shipments.filter((item) => item.status === "approved").length,
+    rejectedOrPenalisedCount: shipments.filter((item) => item.status === "rejected" || item.status === "penalty").length,
   };
 }
 
@@ -163,4 +191,8 @@ export function getLatestDiscrepancyShipment() {
   });
   if (!candidates.length) return getActiveShipment();
   return candidates.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+}
+
+export function getShipmentStatusLabel(status) {
+  return STATUS_LABELS[status] || "Pending";
 }

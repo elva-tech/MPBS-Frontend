@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { calculateTotals, getLatestDiscrepancyShipment, setActiveShipmentId, updateShipment } from "./state";
+import { calculateTotals, getLatestDiscrepancyShipment, getShipmentStatusLabel, setActiveShipmentId, updateShipment } from "./state";
 
 const discrepancyTypes = ["Quantity Loss", "Low Fat / SNF", "Spillage", "Adulteration"];
 
@@ -8,6 +8,7 @@ export default function DairyMilkReceipt() {
   const [discrepancyType, setDiscrepancyType] = useState(discrepancyTypes[0]);
   const [remarks, setRemarks] = useState("Milk shortage detected during unloading.");
   const [photoName, setPhotoName] = useState("");
+  const [remarksError, setRemarksError] = useState("");
 
   useEffect(() => {
     if (!shipment?.discrepancy) return;
@@ -34,6 +35,14 @@ export default function DairyMilkReceipt() {
   }, [receiptRows]);
 
   const saveDecision = (status) => {
+    if (!remarks.trim()) {
+      setRemarksError("Remarks are mandatory for approve with penalty or rejection.");
+      return;
+    }
+    const actionText = status === "rejected" ? "reject this tanker batch" : "approve with penalty and send to Accounts";
+    const confirmed = window.confirm(`Please confirm: ${actionText}?`);
+    if (!confirmed) return;
+
     if (!shipment?.id) return;
     const updated = updateShipment(shipment.id, (current) => ({
       ...current,
@@ -46,8 +55,10 @@ export default function DairyMilkReceipt() {
         deduction: totals.deduction,
       },
     }));
+    setRemarksError("");
     setShipment(updated);
     setActiveShipmentId(updated?.id || shipment.id);
+    window.alert("Submission completed successfully.");
   };
 
   if (!shipment) {
@@ -63,6 +74,12 @@ export default function DairyMilkReceipt() {
     <div className="p-6 text-[#1F2A44]">
       <h1 className="text-2xl font-semibold text-[#1E4B6B]">Milk Receipt & Discrepancy</h1>
       <p className="mt-1 text-sm text-[#5B6B7F]">Log quantity/quality differences and apply penalty decisions.</p>
+      <div className="mt-3 rounded-lg border border-[#D7E4FF] bg-white px-4 py-3 text-sm text-[#334155]">
+        <span className="font-semibold">Tanker:</span> {shipment.tankerId} ({shipment.route}){" "}
+        <span className="ml-3 rounded-full bg-[#EEF4FF] px-2 py-1 text-xs font-semibold text-[#1E4B6B]">
+          {getShipmentStatusLabel(shipment.status)}
+        </span>
+      </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-[#D7E4FF] bg-white p-5 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
@@ -84,10 +101,14 @@ export default function DairyMilkReceipt() {
           <label className="mt-4 block text-sm font-medium text-[#334155]">Remarks</label>
           <textarea
             value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
+            onChange={(e) => {
+              setRemarks(e.target.value);
+              if (remarksError) setRemarksError("");
+            }}
             rows={4}
             className="mt-1 w-full rounded-lg border border-[#D7E4FF] bg-[#F7FAFF] px-3 py-2 text-sm"
           />
+          {remarksError ? <p className="mt-1 text-xs font-semibold text-[#B42318]">{remarksError}</p> : null}
 
           <label className="mt-4 block text-sm font-medium text-[#334155]">Upload Evidence</label>
           <label className="mt-1 flex cursor-pointer items-center justify-between rounded-lg border border-[#D7E4FF] bg-[#F7FAFF] px-3 py-2 text-sm">

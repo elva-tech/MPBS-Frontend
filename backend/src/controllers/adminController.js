@@ -67,9 +67,21 @@ export async function listUsers(req, res) {
 
 export async function createUser(req, res) {
   const { username, password, role, profile } = req.body;
+  const normalizedRole = role === "Other Users" ? "Other" : role;
+  const authStatus = normalizedRole === "Admin" ? "Approved" : "Pending";
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ username, passwordHash, role, profile });
-  res.status(201).json({ data: user });
+  const user = await User.create({
+    username,
+    passwordHash,
+    role: normalizedRole,
+    authStatus,
+    profile,
+  });
+
+  const createdUser = user.toObject();
+  delete createdUser.passwordHash;
+
+  res.status(201).json({ data: createdUser });
 }
 
 export async function updateUserAuth(req, res) {
