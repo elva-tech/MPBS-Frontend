@@ -2,6 +2,9 @@
 
 dotenv.config();
 
+const nodeEnv = process.env.NODE_ENV || "development";
+const isProduction = String(nodeEnv).toLowerCase() === "production";
+
 const rawOrigins = process.env.CORS_ORIGIN || "http://localhost:5173";
 const corsOrigins = rawOrigins
   .split(",")
@@ -13,7 +16,8 @@ export const config = {
   mongoUri: process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/mpbs",
   jwtSecret: process.env.JWT_SECRET || "dev_secret",
   corsOrigins,
-  nodeEnv: process.env.NODE_ENV || "development",
+  nodeEnv,
+  isProduction,
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
@@ -22,3 +26,15 @@ export const config = {
   },
   uploadMaxMb: Number(process.env.UPLOAD_MAX_MB || 5),
 };
+
+function requireInProduction(condition, message) {
+  if (isProduction && !condition) {
+    throw new Error(`[config] ${message}`);
+  }
+}
+
+requireInProduction(Boolean(config.mongoUri), "MONGODB_URI is required in production");
+requireInProduction(Boolean(config.jwtSecret), "JWT_SECRET is required in production");
+requireInProduction(config.jwtSecret !== "dev_secret", "JWT_SECRET must not use default dev_secret in production");
+requireInProduction(config.corsOrigins.length > 0, "CORS_ORIGIN must include at least one origin in production");
+requireInProduction(Number.isFinite(config.uploadMaxMb) && config.uploadMaxMb > 0, "UPLOAD_MAX_MB must be a positive number");

@@ -1,4 +1,5 @@
-import { calcEntry } from "../utils/engine";
+import { Fragment } from "react";
+import { calcEntry, compareVals } from "../utils/engine";
 
 export default function SaveModal({ record, onClose }) {
   if (!record) return null;
@@ -21,6 +22,15 @@ export default function SaveModal({ record, onClose }) {
     borderBottom: "1px solid #f0f4f8",
     fontSize: 13,
     fontFamily: "monospace",
+  };
+  const mismatchStyle = {
+    color: "#b91c1c",
+    fontWeight: 700,
+  };
+  const deltaStyle = {
+    marginLeft: 6,
+    fontSize: 11,
+    fontWeight: 800,
   };
 
   return (
@@ -294,6 +304,87 @@ export default function SaveModal({ record, onClose }) {
                   })}
                 </tbody>
               </table>
+
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "#6b7280",
+                  marginTop: 16,
+                  marginBottom: 8,
+                }}
+              >
+                Data Comparison (Society vs BMC)
+              </div>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  border: "1px solid #e4e9f0",
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  marginBottom: 16,
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "#fafbfd" }}>
+                    <th style={thStyle}>Type</th>
+                    <th style={thStyle}>Source</th>
+                    <th style={thStyle}>Fat%</th>
+                    <th style={thStyle}>SNF%</th>
+                    <th style={thStyle}>Qty (L)</th>
+                    <th style={thStyle}>Rate</th>
+                    <th style={thStyle}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {record.entries.map((socEntry, i) => {
+                    const bmcEntry =
+                      record.bmcEntries.find((b) => b.type === socEntry.type) || record.bmcEntries[i];
+                    if (!bmcEntry) return null;
+                    const bmcCalc = calcEntry(bmcEntry.type, bmcEntry.fat, bmcEntry.snf, bmcEntry.qty);
+                    const cmp = compareVals(socEntry, bmcEntry);
+                    const arrow = (field) => {
+                      if (field.bv > field.sv) return <span style={{ ...deltaStyle, color: "#15803d" }}>▲</span>;
+                      if (field.bv < field.sv) return <span style={{ ...deltaStyle, color: "#b91c1c" }}>▼</span>;
+                      return null;
+                    };
+                    return (
+                      <Fragment key={`${socEntry.type}-${i}`}>
+                        <tr>
+                        <td style={tdStyle}>{socEntry.type}</td>
+                        <td style={tdStyle}>Society</td>
+                        <td style={tdStyle}>{socEntry.fat}</td>
+                        <td style={tdStyle}>{socEntry.snf}</td>
+                        <td style={tdStyle}>{socEntry.qty}</td>
+                        <td style={tdStyle}>{socEntry.rateFmt}</td>
+                        <td style={{ ...tdStyle, fontWeight: 700, color: "#1e2d45" }}>{socEntry.amtFmt}</td>
+                      </tr>
+                      <tr>
+                        <td style={tdStyle} />
+                        <td style={{ ...tdStyle, color: "#b91c1c", fontWeight: 700 }}>BMC</td>
+                        <td style={{ ...tdStyle, ...(cmp.fields.fat.ok ? null : mismatchStyle) }}>
+                          {bmcEntry.fat}
+                          {arrow(cmp.fields.fat)}
+                        </td>
+                        <td style={{ ...tdStyle, ...(cmp.fields.snf.ok ? null : mismatchStyle) }}>
+                          {bmcEntry.snf}
+                          {arrow(cmp.fields.snf)}
+                        </td>
+                        <td style={{ ...tdStyle, ...(cmp.fields.qty.ok ? null : mismatchStyle) }}>
+                          {bmcEntry.qty}
+                          {arrow(cmp.fields.qty)}
+                        </td>
+                        <td style={tdStyle}>{bmcCalc.rateFmt}</td>
+                        <td style={{ ...tdStyle, fontWeight: 700, color: "#1e2d45" }}>{bmcCalc.amtFmt}</td>
+                      </tr>
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </>
           )}
         </div>
@@ -312,7 +403,7 @@ export default function SaveModal({ record, onClose }) {
               cursor: "pointer",
             }}
           >
-            Done
+            Save
           </button>
         </div>
       </div>

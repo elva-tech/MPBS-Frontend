@@ -1,4 +1,5 @@
 ﻿import { MilkEntry } from "../models/MilkEntry.js";
+import { getPagination, makePaginationMeta } from "../utils/pagination.js";
 
 const SOCIETY_FIXED_RATE = Number(process.env.SOCIETY_FIXED_RATE || 45);
 
@@ -28,8 +29,23 @@ export async function getMilkEntries(req, res) {
     q.session = sessionValue === "morning" ? "M" : sessionValue === "evening" ? "E" : session;
   }
 
-  const entries = await MilkEntry.find(q).sort({ date: 1, session: 1, createdAt: 1 });
-  res.json({ data: { milkEntries: entries } });
+  const pagination = getPagination(req.query);
+
+  if (!pagination.enabled) {
+    const entries = await MilkEntry.find(q).sort({ date: 1, session: 1, createdAt: 1 });
+    return res.json({ data: { milkEntries: entries } });
+  }
+
+  const { page, limit, skip } = pagination;
+  const [entries, total] = await Promise.all([
+    MilkEntry.find(q).sort({ date: 1, session: 1, createdAt: 1 }).skip(skip).limit(limit),
+    MilkEntry.countDocuments(q),
+  ]);
+
+  return res.json({
+    data: { milkEntries: entries },
+    meta: makePaginationMeta(total, page, limit),
+  });
 }
 
 export async function createMilkEntries(req, res) {

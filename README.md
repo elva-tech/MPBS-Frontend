@@ -112,6 +112,16 @@ If you see "fetch failed" errors:
 2. Check if port 4000 is available
 3. Use the `start.bat` script which handles startup sequence
 4. The API now has built-in retry logic (3 attempts)
+5. Verify backend health: `http://localhost:4000/health` should return `{"ok":true}`
+6. If MongoDB starts late, backend now retries DB connection (defaults: 15 attempts, 2s delay)
+7. Backend `npm run dev` now auto-restarts if startup fails (for example, DB still coming up)
+
+Backend retry settings (optional, in `backend/.env`):
+```env
+DB_CONNECT_MAX_RETRIES=15
+DB_CONNECT_RETRY_DELAY_MS=2000
+DEV_RESTART_DELAY_MS=3000
+```
 
 ### Port Already in Use
 

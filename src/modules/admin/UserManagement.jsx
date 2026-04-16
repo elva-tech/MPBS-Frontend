@@ -1,12 +1,14 @@
 ﻿import { useState, useEffect } from "react";
 import AddUserModal from "./components/AddUserModal";
-import { listUsers, createUser } from "../../utils/api";
+import { listUsers, createUser, updateUserAuth } from "../../utils/api";
+import "./UserManagement.css";
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
+  const [authUpdatingUserId, setAuthUpdatingUserId] = useState("");
 
   useEffect(() => {
     loadUsers();
@@ -35,7 +37,7 @@ export default function UserManagement() {
         role,
         profile: userData,
       });
-      alert("User added successfully");
+      alert(`${role} user created. Approve it before login.`);
       setShowModal(false);
       await loadUsers();
     } catch (err) {
@@ -43,57 +45,94 @@ export default function UserManagement() {
     }
   };
 
+  const handleAuthStatusUpdate = async (userId, authStatus) => {
+    if (!userId) return;
+    setError("");
+    setAuthUpdatingUserId(userId);
+    try {
+      await updateUserAuth(userId, { authStatus });
+      await loadUsers();
+    } catch (err) {
+      setError(err.message || "Failed to update auth status");
+    } finally {
+      setAuthUpdatingUserId("");
+    }
+  };
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-semibold">User Management</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="rounded-lg bg-[#1E4B6B] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_18px_rgba(30,75,107,0.22)] transition hover:bg-[#163A54]"
-        >
-          Add User
-        </button>
+    <div className="admin-users">
+      <div className="page-head">
+        <div>
+          <h1 className="title">User Management</h1>
+          <div className="subtitle">Manage admin, society, BMC, and other user accounts.</div>
+          <div className="subtitle">New Society and BMC accounts are created as Pending until approved here.</div>
+        </div>
       </div>
 
-      {error && (
-        <p className="mb-3 text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="error-text">{error}</p>}
 
       {loading ? (
-        <p>Loading...</p>
+        <p className="loading-text">Loading...</p>
+      ) : users.length == 0 ? (
+        <div className="empty-card">No users found.</div>
       ) : (
-        <div className="bg-white rounded shadow overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-200">
+        <div className="table-wrap">
+          <table className="admin-table">
+            <thead>
               <tr>
-                <th className="border px-4 py-2">Sl No.</th>
-                <th className="border px-4 py-2">User Name</th>
-                <th className="border px-4 py-2">Role</th>
-                <th className="border px-4 py-2">Auth Status</th>
-                <th className="border px-4 py-2">Created At</th>
+                <th className="col-sl">Sl No.</th>
+                <th>User Name</th>
+                <th>Role</th>
+                <th className="col-status">Auth Status</th>
+                <th>Actions</th>
+                <th className="col-date">Created At</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user, index) => (
                 <tr key={user._id || user.id}>
-                  <td className="border px-4 py-2 text-center">{index + 1}</td>
-                  <td className="border px-4 py-2">{user.username}</td>
-                  <td className="border px-4 py-2">{user.role}</td>
-                  <td className="border px-4 py-2">
+                  <td className="col-sl">{index + 1}</td>
+                  <td className="cell-strong">{user.username}</td>
+                  <td>{user.role}</td>
+                  <td className="col-status">
                     <span
-                      className={`px-2 py-1 rounded text-xs ${
+                      className={`status-pill ${
                         user.authStatus === "Approved"
-                          ? "bg-green-100 text-green-700"
+                          ? "approved"
                           : user.authStatus === "Pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-red-100 text-red-700"
+                          ? "pending"
+                          : "rejected"
                       }`}
                     >
                       {user.authStatus}
                     </span>
                   </td>
-                  <td className="border px-4 py-2">
-                    {new Date(user.createdAt).toLocaleDateString()}
+                  <td>
+                    {user.authStatus === "Pending" ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={authUpdatingUserId === (user._id || user.id)}
+                          onClick={() => handleAuthStatusUpdate(user._id || user.id, "Approved")}
+                          className="rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          disabled={authUpdatingUserId === (user._id || user.id)}
+                          onClick={() => handleAuthStatusUpdate(user._id || user.id, "Rejected")}
+                          className="rounded bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-500">-</span>
+                    )}
+                  </td>
+                  <td className="col-date">
+                    {new Date(user.createdAt).toLocaleDateString("en-IN")}
                   </td>
                 </tr>
               ))}
@@ -101,6 +140,12 @@ export default function UserManagement() {
           </table>
         </div>
       )}
+
+      <div className="add-row">
+        <button onClick={() => setShowModal(true)} className="add-btn">
+          Add User
+        </button>
+      </div>
 
       {showModal && (
         <AddUserModal

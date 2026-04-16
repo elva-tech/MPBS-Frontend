@@ -17,10 +17,16 @@ import {
 import { getBmcDashboard, getReportQuality, getReportOverheads } from "../../utils/api";
 
 const milkShareColors = ["#1E4B6B", "#9DB5CC"];
+const TOP_CARD_STYLES = [
+  { bg: "#F4F0FB", border: "#D9CAE9", iconBg: "#F1ECF8", iconBorder: "#D9CAE9" },
+  { bg: "#EEF4FF", border: "#CFE0FF", iconBg: "#EAF1FF", iconBorder: "#CFE0FF" },
+  { bg: "#F8F3E8", border: "#EFD5B4", iconBg: "#F5EBDD", iconBorder: "#EFD5B4" },
+  { bg: "#EEF2F7", border: "#D4E0EF", iconBg: "#EAF1FF", iconBorder: "#D4E0EF" },
+];
 
 export default function BmcDashboard() {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const username = localStorage.getItem("bmc_name") || "Username";
+  const username = localStorage.getItem("bmc_name");
   const avatarLetter = username ? username.charAt(0).toUpperCase() : "";
   
   // State for dashboard data
@@ -172,7 +178,7 @@ export default function BmcDashboard() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-full bg-[#F8F6F2] p-6 flex items-center justify-center">
+      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E4B6B]"></div>
           <p className="mt-4 text-[#5B6B7F]">Loading BMC dashboard...</p>
@@ -184,9 +190,9 @@ export default function BmcDashboard() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-full bg-[#F8F6F2] p-6 flex items-center justify-center">
+      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-lg mb-4">âš ï¸ Error Loading Dashboard</div>
+          <div className="text-red-500 text-lg mb-4">Error Loading Dashboard</div>
           <p className="text-[#5B6B7F] mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()}
@@ -202,25 +208,25 @@ export default function BmcDashboard() {
   // Fallback for missing data
   if (!summary || !milkBreakdown || milkBreakdown.length === 0) {
     return (
-      <div className="min-h-full bg-[#F8F6F2] p-6 flex items-center justify-center">
+      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
         <p className="text-[#5B6B7F]">No data available</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-full bg-[#F8F6F2] p-6 text-[#1F2A44]">
+    <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 text-[#0F1E33] select-none cursor-default font-bold">
       <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#1E4B6B]">
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="flex items-center gap-2">
+          <svg className="h-5 w-5 text-[#1E4B6B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="7" height="7" rx="1" />
             <rect x="14" y="3" width="7" height="7" rx="1" />
             <rect x="3" y="14" width="7" height="7" rx="1" />
             <rect x="14" y="14" width="7" height="7" rx="1" />
           </svg>
-          Dashboard
+          <h2 className="font-semibold text-[#1E4B6B]">Dashboard</h2>
         </div>
-        <div className="flex items-center gap-3 text-xs text-[#1F2A44]">
+        <div className="flex items-center gap-3 text-sm text-[#5B6B7F]">
           {/*
           <button
             onClick={handleDownloadDispatchSheet}
@@ -229,18 +235,33 @@ export default function BmcDashboard() {
             Generate Dispatch Sheet
           </button>
           */}
-          <span>{username}</span>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#C9D5E5] bg-white text-[11px] font-semibold text-[#1E4B6B]">
-            {avatarLetter}
-          </div>
+          {username && (
+            <svg className="h-4 w-4 text-[#1E4B6B]" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 1 0-14 0v5l-2 2v1h18v-1l-2-2Z"
+              />
+            </svg>
+          )}
+          {username && <span>{username}</span>}
+          {username && (
+            <div className="w-7 h-7 rounded-full bg-[#EAF1FF] text-[#1E4B6B] flex items-center justify-center">
+              {avatarLetter}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-[0_2px_8px_rgba(31,42,68,0.08)]">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex items-center gap-3 rounded-lg border border-[#E6DDF5] bg-[#F7F2FF] px-4 py-3 shadow-[0_2px_6px_rgba(31,42,68,0.08)]">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md border border-[#E2D5FB] bg-white text-[#1E4B6B]">
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
+            style={{ background: TOP_CARD_STYLES[0].bg, borderColor: TOP_CARD_STYLES[0].border }}
+          >
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-md text-[#1E4B6B] border"
+              style={{ background: TOP_CARD_STYLES[0].iconBg, borderColor: TOP_CARD_STYLES[0].iconBorder }}
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="4" y="4" width="7" height="7" rx="1" />
                 <rect x="13" y="4" width="7" height="7" rx="1" />
                 <rect x="4" y="13" width="7" height="7" rx="1" />
@@ -248,14 +269,20 @@ export default function BmcDashboard() {
               </svg>
             </div>
             <div>
-              <div className="text-[15px] font-semibold">{summary.type.cow} L</div>
-              <div className="text-[12px] font-medium text-[#1E4B6B]">Cow Milk Procured</div>
+              <div className="text-[32px] leading-none font-semibold text-[#1E4B6B]">{summary.type.cow} L</div>
+              <div className="text-[12px] font-medium text-[#5B6B7F] mt-1">Cow Milk Procured</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-lg border border-[#D6E4FF] bg-[#F2F6FF] px-4 py-3 shadow-[0_2px_6px_rgba(31,42,68,0.08)]">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md border border-[#C9DAFF] bg-white text-[#1E4B6B]">
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
+            style={{ background: TOP_CARD_STYLES[1].bg, borderColor: TOP_CARD_STYLES[1].border }}
+          >
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-md text-[#1E4B6B] border"
+              style={{ background: TOP_CARD_STYLES[1].iconBg, borderColor: TOP_CARD_STYLES[1].iconBorder }}
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M4 9h16" />
                 <path d="M6 9l2-3h8l2 3" />
                 <path d="M7 13h10" />
@@ -263,32 +290,44 @@ export default function BmcDashboard() {
               </svg>
             </div>
             <div>
-              <div className="text-[15px] font-semibold">{summary.type.buffalo} L</div>
-              <div className="text-[12px] font-medium text-[#1E4B6B]">Buffalo Milk Procured</div>
+              <div className="text-[32px] leading-none font-semibold text-[#1E4B6B]">{summary.type.buffalo} L</div>
+              <div className="text-[12px] font-medium text-[#5B6B7F] mt-1">Buffalo Milk Procured</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-lg border border-[#FFE1C7] bg-[#FFF6EB] px-4 py-3 shadow-[0_2px_6px_rgba(31,42,68,0.08)]">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md border border-[#FFD6B1] bg-white text-[#1E4B6B]">
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
+            style={{ background: TOP_CARD_STYLES[2].bg, borderColor: TOP_CARD_STYLES[2].border }}
+          >
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-md text-[#1E4B6B] border"
+              style={{ background: TOP_CARD_STYLES[2].iconBg, borderColor: TOP_CARD_STYLES[2].iconBorder }}
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 12l2 2 4-4" />
                 <rect x="3" y="3" width="18" height="18" rx="2" />
               </svg>
             </div>
             <div className="flex-1">
-              <div className="text-[15px] font-semibold">
+              <div className="text-[30px] leading-none font-semibold text-[#1E4B6B]">
                 {societiesVerified.verified} / {societiesVerified.total}
               </div>
-              <div className="text-[12px] font-medium text-[#1E4B6B]">Societies Verified</div>
+              <div className="text-[12px] font-medium text-[#5B6B7F] mt-1">Societies Verified</div>
               <div className="mt-2 h-1.5 w-full rounded-full bg-[#E5E7EB]">
                 <div className="h-1.5 w-[70%] rounded-full bg-[#1E4B6B]" />
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-lg border border-[#D6E8FF] bg-[#F2F8FF] px-4 py-3 shadow-[0_2px_6px_rgba(31,42,68,0.08)]">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md border border-[#C9DDFF] bg-white text-[#1E4B6B]">
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
+            style={{ background: TOP_CARD_STYLES[3].bg, borderColor: TOP_CARD_STYLES[3].border }}
+          >
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-md text-[#1E4B6B] border"
+              style={{ background: TOP_CARD_STYLES[3].iconBg, borderColor: TOP_CARD_STYLES[3].iconBorder }}
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 7h12v8H3z" />
                 <path d="M15 10h3l3 3v2h-6z" />
                 <circle cx="7" cy="18" r="2" />
@@ -296,16 +335,15 @@ export default function BmcDashboard() {
               </svg>
             </div>
             <div>
-              <div className="text-[12px] font-semibold">Status :- {dispatchStatus}</div>
-              <div className="text-[11px] text-[#1E4B6B]">Last trip on time</div>
+              <div className="text-[18px] leading-none font-semibold text-[#1E4B6B]">Status :- {dispatchStatus}</div>
+              <div className="text-[12px] text-[#5B6B7F] mt-1">Last trip on time</div>
             </div>
           </div>
-        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-[0_2px_8px_rgba(31,42,68,0.08)]">
-          <div className="text-sm font-semibold text-[#1F2A44]">Milk Breakdown</div>
+        <div className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]">
+          <div className="text-sm font-semibold text-[#1E4B6B]">Milk Breakdown</div>
           <div className="mt-3 flex items-center gap-6">
             <div className="h-40 w-40">
               <ResponsiveContainer width="100%" height="100%">
@@ -326,7 +364,7 @@ export default function BmcDashboard() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="space-y-2 text-xs font-semibold text-[#1F2A44]">
+            <div className="space-y-2 text-xs font-semibold text-[#6B7FA0]">
               {milkShare.map((entry) => (
                 <div key={entry.name} className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
@@ -337,14 +375,14 @@ export default function BmcDashboard() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-[0_2px_8px_rgba(31,42,68,0.08)]">
+        <div className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-[#1F2A44]">Milk Procured</div>
+            <div className="text-sm font-semibold text-[#1E4B6B]">Milk Procured</div>
             <div className="flex items-center gap-2">
               <select
                 value={monthProcured}
                 onChange={(e) => setMonthProcured(e.target.value)}
-                className="rounded-lg border border-[#D6E0EC] bg-[#F3F6FB] px-3 py-1 text-xs font-semibold text-[#1E4B6B]"
+                className="rounded-lg border border-[#D7E4FF] bg-[#F1F6FF] px-3 py-1 text-xs font-semibold text-[#5B6B7F]"
               >
                 {months.map((m) => (
                   <option key={m} value={m}>
@@ -363,7 +401,7 @@ export default function BmcDashboard() {
                     filename: `milk_procured_${monthProcured}.pdf`,
                   })
                 }
-                className="rounded-md bg-[#1E4B6B] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_2px_6px_rgba(30,75,107,0.25)] hover:bg-[#173A55]"
+                className="rounded border border-[#1E4B6B] bg-[#F1F6FF] px-3 py-1.5 text-[11px] font-semibold text-[#1E4B6B]"
               >
                 Download Report
               </button>
@@ -372,28 +410,28 @@ export default function BmcDashboard() {
           <div className="mt-3 h-40">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={milkProcured}>
-                <CartesianGrid stroke="#E6ECF3" strokeDasharray="4 4" />
-                <XAxis dataKey="name" tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <CartesianGrid stroke="#E1E6EB" strokeDasharray="4 4" />
+                <XAxis dataKey="name" tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#1E4B6B" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#1F2A44]">
+          <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#6B7FA0]">
             <span className="h-2 w-2 rounded-full bg-[#1E4B6B]" />
             Milk Procured from Societies
           </div>
         </div>
 
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-[0_2px_8px_rgba(31,42,68,0.08)]">
+        <div className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-[#1F2A44]">Milk Rejected / Adjusted</div>
+            <div className="text-sm font-semibold text-[#1E4B6B]">Milk Rejected / Adjusted</div>
             <div className="flex items-center gap-2">
               <select
                 value={monthRejected}
                 onChange={(e) => setMonthRejected(e.target.value)}
-                className="rounded-lg border border-[#D6E0EC] bg-[#F3F6FB] px-3 py-1 text-xs font-semibold text-[#1E4B6B]"
+                className="rounded-lg border border-[#D7E4FF] bg-[#F1F6FF] px-3 py-1 text-xs font-semibold text-[#5B6B7F]"
               >
                 {months.map((m) => (
                   <option key={m} value={m}>
@@ -412,7 +450,7 @@ export default function BmcDashboard() {
                     filename: `milk_rejected_${monthRejected}.pdf`,
                   })
                 }
-                className="rounded-md bg-[#1E4B6B] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_2px_6px_rgba(30,75,107,0.25)] hover:bg-[#173A55]"
+                className="rounded border border-[#1E4B6B] bg-[#F1F6FF] px-3 py-1.5 text-[11px] font-semibold text-[#1E4B6B]"
               >
                 Download Report
               </button>
@@ -421,15 +459,15 @@ export default function BmcDashboard() {
           <div className="mt-3 h-40">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={milkRejected}>
-                <CartesianGrid stroke="#E6ECF3" strokeDasharray="4 4" />
-                <XAxis dataKey="name" tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <CartesianGrid stroke="#E1E6EB" strokeDasharray="4 4" />
+                <XAxis dataKey="name" tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#E24C4C" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#1F2A44]">
+          <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#6B7FA0]">
             <span className="h-2 w-2 rounded-full bg-[#E24C4C]" />
             Milk Rejected / Adjusted
           </div>
@@ -437,14 +475,14 @@ export default function BmcDashboard() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-[0_2px_8px_rgba(31,42,68,0.08)]">
+        <div className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-[#1F2A44]">Month Wise Milk Quality</div>
+            <div className="text-sm font-semibold text-[#1E4B6B]">Month Wise Milk Quality</div>
             <div className="flex items-center gap-2">
               <select
                 value={monthQualityFilter}
                 onChange={(e) => setMonthQualityFilter(e.target.value)}
-                className="rounded-lg border border-[#D6E0EC] bg-[#F3F6FB] px-3 py-1 text-xs font-semibold text-[#1E4B6B]"
+                className="rounded-lg border border-[#D7E4FF] bg-[#F1F6FF] px-3 py-1 text-xs font-semibold text-[#5B6B7F]"
               >
                 {months.map((m) => (
                   <option key={m} value={m}>
@@ -461,17 +499,17 @@ export default function BmcDashboard() {
                     headers: ["Month", "Good", "Penalised"],
                     rows: monthQuality
                       .filter((entry) => entry.name === monthQualityFilter)
-                      .map((entry) => [entry.name, entry.good, entry.bad]),
+                      .map((entry) => [entry.name, entry.good, entry.penalised]),
                     filename: `milk_quality_${monthQualityFilter}.pdf`,
                   })
                 }
-                className="rounded-md bg-[#1E4B6B] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_2px_6px_rgba(30,75,107,0.25)] hover:bg-[#173A55]"
+                className="rounded border border-[#1E4B6B] bg-[#F1F6FF] px-3 py-1.5 text-[11px] font-semibold text-[#1E4B6B]"
               >
                 Download Report
               </button>
             </div>
           </div>
-          <div className="mt-2 flex items-center gap-4 text-xs font-semibold text-[#1F2A44]">
+          <div className="mt-2 flex items-center gap-4 text-xs font-semibold text-[#6B7FA0]">
             <span className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#1E4B6B]" />
               Good Milk
@@ -484,21 +522,21 @@ export default function BmcDashboard() {
           <div className="mt-3 h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthQuality}>
-                <CartesianGrid stroke="#E6ECF3" strokeDasharray="4 4" />
-                <XAxis dataKey="name" tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <CartesianGrid stroke="#E1E6EB" strokeDasharray="4 4" />
+                <XAxis dataKey="name" tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip />
                 <Bar dataKey="good" fill="#1E4B6B" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="bad" fill="#E24C4C" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="penalised" fill="#E24C4C" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-[0_2px_8px_rgba(31,42,68,0.08)]">
+        <div className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-[#1F2A44]">Overheads</div>
-            <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-[#1F2A44]">
+            <div className="text-sm font-semibold text-[#1E4B6B]">Overheads</div>
+            <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-[#6B7FA0]">
               <span className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-[#1E4B6B]" />
                 Diesel
@@ -517,7 +555,7 @@ export default function BmcDashboard() {
             <select
               value={monthOverheads}
               onChange={(e) => setMonthOverheads(e.target.value)}
-              className="rounded-lg border border-[#D6E0EC] bg-[#F3F6FB] px-3 py-1 text-xs font-semibold text-[#1E4B6B]"
+              className="rounded-lg border border-[#D7E4FF] bg-[#F1F6FF] px-3 py-1 text-xs font-semibold text-[#5B6B7F]"
             >
               {months.map((m) => (
                 <option key={m} value={m}>
@@ -538,7 +576,7 @@ export default function BmcDashboard() {
                   filename: `overheads_${monthOverheads}.pdf`,
                 })
               }
-              className="rounded-md bg-[#1E4B6B] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_2px_6px_rgba(30,75,107,0.25)] hover:bg-[#173A55]"
+              className="rounded border border-[#1E4B6B] bg-[#F1F6FF] px-3 py-1.5 text-[11px] font-semibold text-[#1E4B6B]"
             >
               Download Report
             </button>
@@ -546,9 +584,9 @@ export default function BmcDashboard() {
           <div className="mt-3 h-48">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={overheads}>
-                <CartesianGrid stroke="#E6ECF3" strokeDasharray="4 4" />
-                <XAxis dataKey="name" tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <CartesianGrid stroke="#E1E6EB" strokeDasharray="4 4" />
+                <XAxis dataKey="name" tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip />
                 <Line type="monotone" dataKey="diesel" stroke="#1E4B6B" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="secretary" stroke="#9DB5CC" strokeWidth={2} dot={false} />

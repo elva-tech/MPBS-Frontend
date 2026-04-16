@@ -1,6 +1,7 @@
-﻿import { MilkEntry } from "../models/MilkEntry.js";
+import { MilkEntry } from "../models/MilkEntry.js";
 import { Verification } from "../models/Verification.js";
 import { Overhead } from "../models/Overhead.js";
+import { isGoodQualityByThreshold } from "../utils/quality.js";
 
 function monthLabel(d) {
   return d.toLocaleString("en-US", { month: "short" });
@@ -105,26 +106,17 @@ export async function qualityReport(req, res) {
 
   const entries = await MilkEntry.find(q);
   const map = new Map();
-  months.forEach((m) => map.set(m.label, { name: m.label, good: 0, bad: 0 }));
-
-  const standards = {
-    Cow: { minFat: 3.5, maxFat: 6.0, minSnf: 8.0, maxSnf: 10.5 },
-    Buffalo: { minFat: 6.0, maxFat: 9.0, minSnf: 9.0, maxSnf: 12.0 },
-  };
+  months.forEach((m) => map.set(m.label, { name: m.label, good: 0, penalised: 0 }));
 
   entries.forEach((e) => {
     const label = monthLabel(new Date(e.date));
     const row = map.get(label);
     if (!row) return;
-    const std = standards[e.milkType];
-    if (!std) return;
-    const fat = Number(e.fat || 0);
-    const snf = Number(e.snf || 0);
     const qty = Number(e.qty || 0);
-    const ok = fat >= std.minFat && fat <= std.maxFat && snf >= std.minSnf && snf <= std.maxSnf;
-    if (ok) row.good += qty;
-    else row.bad += qty;
+    if (isGoodQualityByThreshold(e)) row.good += qty;
+    else row.penalised += qty;
   });
 
   res.json({ data: Array.from(map.values()) });
 }
+

@@ -12,10 +12,15 @@
 } from "recharts";
 import { useEffect, useState } from "react";
 import jsPDF from "jspdf";
-import { downloadDispatchPdf } from "../../utils/dispatchPdf";
 import { getSocietyDashboard } from "../../utils/api";
 
 const COLORS = ["#1E4B6B", "#9DB5CC"];
+const TOP_CARD_STYLES = [
+  { bg: "#F4F0FB", border: "#D9CAE9", iconBg: "#F1ECF8", iconBorder: "#D9CAE9" },
+  { bg: "#EEF4FF", border: "#CFE0FF", iconBg: "#EAF1FF", iconBorder: "#CFE0FF" },
+  { bg: "#F8F3E8", border: "#EFD5B4", iconBg: "#F5EBDD", iconBorder: "#EFD5B4" },
+  { bg: "#EEF2F7", border: "#D4E0EF", iconBg: "#EAF1FF", iconBorder: "#D4E0EF" },
+];
 
 export default function Dashboard() {
   const username = localStorage.getItem("society_name");
@@ -251,6 +256,14 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3 text-sm text-[#5B6B7F]">
+          {username && (
+            <svg className="w-4 h-4 text-[#1E4B6B]" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 1 0-14 0v5l-2 2v1h18v-1l-2-2Z"
+              />
+            </svg>
+          )}
           {username && <span className="hidden md:inline">{username}</span>}
           {username && (
             <div className="w-7 h-7 rounded-full bg-[#EAF1FF] text-[#1E4B6B] flex items-center justify-center">
@@ -263,8 +276,14 @@ export default function Dashboard() {
       {/* TOP STATS */}
       <div className="flex flex-nowrap items-center gap-4 mb-8">
         {/* Total Milk */}
-        <div className="border border-[#D7E4FF] rounded-lg p-3 w-60 h-24 bg-white shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
-          <div className="w-11 h-11 rounded-md bg-[#EAF1FF] border border-[#D7E4FF] flex items-center justify-center text-[#1E4B6B]"><svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.7 6.3 8.4a8 8 0 1 0 11.4 0L12 2.7z" /></svg></div>
+        <div
+          className="rounded-lg p-3 w-60 h-24 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3 border"
+          style={{ background: TOP_CARD_STYLES[0].bg, borderColor: TOP_CARD_STYLES[0].border }}
+        >
+          <div
+            className="w-11 h-11 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            style={{ background: TOP_CARD_STYLES[0].iconBg, borderColor: TOP_CARD_STYLES[0].iconBorder }}
+          ><svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.7 6.3 8.4a8 8 0 1 0 11.4 0L12 2.7z" /></svg></div>
           <div>
             <div className="text-[13px] text-[#5B6B7F] font-medium">Today's Total Milk</div>
             <p className="text-[24px] font-semibold text-[#1E4B6B] leading-none mt-1">{summary.totalMilk} L</p>
@@ -272,8 +291,14 @@ export default function Dashboard() {
         </div>
 
         {/* Total Farmers */}
-        <div className="border border-[#CFE0FF] rounded-lg p-3 w-60 h-24 bg-white shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
-          <div className="w-11 h-11 rounded-md bg-[#EAF1FF] border border-[#DCE8FF] flex items-center justify-center text-[#1E4B6B]"><svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="7" r="4" /><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></div>
+        <div
+          className="rounded-lg p-3 w-60 h-24 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3 border"
+          style={{ background: TOP_CARD_STYLES[1].bg, borderColor: TOP_CARD_STYLES[1].border }}
+        >
+          <div
+            className="w-11 h-11 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            style={{ background: TOP_CARD_STYLES[1].iconBg, borderColor: TOP_CARD_STYLES[1].iconBorder }}
+          ><svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="7" r="4" /><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></div>
           <div>
             <div className="text-[13px] text-[#5B6B7F] font-medium">Total Farmers</div>
             <p className="text-[24px] font-semibold text-[#1E4B6B] leading-none mt-1">{summary.totalFarmers}</p>
@@ -281,9 +306,15 @@ export default function Dashboard() {
         </div>
 
         {/* Morning / Evening */}
-        <div className="border border-[#D7E4FF] rounded-lg p-3 w-64 h-24 bg-white shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
-          <div className="w-11 h-11 rounded-md bg-[#EAF1FF] border border-[#D7E4FF] flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full bg-[#C7CCD4] flex items-center justify-center">
+        <div
+          className="rounded-lg p-3 w-64 h-24 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3 border"
+          style={{ background: TOP_CARD_STYLES[2].bg, borderColor: TOP_CARD_STYLES[2].border }}
+        >
+          <div
+            className="w-11 h-11 rounded-md flex items-center justify-center border"
+            style={{ background: TOP_CARD_STYLES[2].iconBg, borderColor: TOP_CARD_STYLES[2].iconBorder }}
+          >
+            <div className="w-8 h-8 rounded-full bg-[#1E4B6B] flex items-center justify-center">
               <svg className="w-4.5 h-4.5 text-[#EAF1FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <circle cx="12" cy="12" r="7.5" />
                 <path d="M12 7v5l3 2" />
@@ -328,8 +359,14 @@ export default function Dashboard() {
         </div>
 
         {/* Buffalo / Cow */}
-        <div className="border border-[#CFE3FF] rounded-lg p-3 w-64 h-24 bg-white shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3">
-          <div className="w-11 h-11 rounded-md bg-[#EAF1FF] border border-[#DCE8FF] flex items-center justify-center text-[#1E4B6B]">
+        <div
+          className="rounded-lg p-3 w-64 h-24 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3 border"
+          style={{ background: TOP_CARD_STYLES[3].bg, borderColor: TOP_CARD_STYLES[3].border }}
+        >
+          <div
+            className="w-11 h-11 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            style={{ background: TOP_CARD_STYLES[3].iconBg, borderColor: TOP_CARD_STYLES[3].iconBorder }}
+          >
             <svg className="w-6 h-6" viewBox="0 0 64 64" aria-hidden="true">
               <path
                 fill="currentColor"
