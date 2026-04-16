@@ -43,6 +43,7 @@ export default function AdminLogin() {
         return;
       }
       localStorage.setItem("auth_token", res.token);
+      localStorage.setItem("admin_token", res.token);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
       localStorage.setItem("admin_name", user.username);

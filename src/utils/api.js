@@ -6,7 +6,17 @@ function backendUnavailableMessage() {
 }
 
 function getToken() {
-  return localStorage.getItem("auth_token") || "";
+  const pathname = window.location?.pathname || "";
+
+  if (pathname.startsWith("/admin")) {
+    return localStorage.getItem("admin_token") || localStorage.getItem("auth_token") || "";
+  }
+
+  if (pathname.startsWith("/bmc")) {
+    return localStorage.getItem("bmc_token") || localStorage.getItem("auth_token") || "";
+  }
+
+  return localStorage.getItem("society_token") || localStorage.getItem("auth_token") || "";
 }
 
 async function sleep(ms) {
@@ -147,8 +157,17 @@ export function login(body) {
 export function listRequests(params = {}) {
   const search = new URLSearchParams();
   if (params.status) search.set("status", params.status);
+  if (params.type) search.set("type", params.type);
   const qs = search.toString();
   return request(`/requests${qs ? `?${qs}` : ""}`);
+}
+
+export function listMyRequests(params = {}) {
+  const search = new URLSearchParams();
+  if (params.status) search.set("status", params.status);
+  if (params.type) search.set("type", params.type);
+  const qs = search.toString();
+  return request(`/requests/mine${qs ? `?${qs}` : ""}`);
 }
 
 export function updateRequest(id, body) {
@@ -219,6 +238,28 @@ export async function uploadNotificationFile(file) {
   form.append("file", file);
   try {
     const res = await fetch(`${API_BASE}/uploads/notification`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload?.message || "Upload failed");
+    return payload;
+  } catch (error) {
+    const isNetworkError = error?.message?.includes("fetch") || error?.name === "TypeError";
+    if (isNetworkError) {
+      throw new Error(backendUnavailableMessage());
+    }
+    throw error;
+  }
+}
+
+export async function uploadComplaintFile(file) {
+  const token = localStorage.getItem("auth_token") || "";
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const res = await fetch(`${API_BASE}/uploads/complaint`, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,

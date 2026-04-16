@@ -36,14 +36,13 @@ export default function BMCLogin() {
         return;
       }
       localStorage.setItem("auth_token", res.token);
+      localStorage.setItem("bmc_token", res.token);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
+      localStorage.setItem("bmc_user_id", user.id);
       localStorage.setItem("bmc_auth", "true");
       localStorage.setItem("bmc_name", user.username);
       localStorage.setItem("bmc_id", user.username);
-      localStorage.removeItem("society_auth");
-      localStorage.removeItem("society_name");
-      localStorage.removeItem("society_id");
       navigate("/bmc/dashboard");
     } catch (err) {
       alert(err.message || "Invalid Username or Password");

@@ -107,7 +107,7 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="flex h-screen bg-[#F8F6F2] select-none cursor-default">
+    <div className="flex h-screen bg-gray-100 overflow-y-hidden select-none cursor-default">
       {/* SIDEBAR */}
       <aside className="w-64 bg-white text-[#1E4B6B] flex flex-col border-r overflow-hidden caret-transparent">
         <div className="p-4 border-b border-[#1E4B6B] bg-white">
