@@ -1,4 +1,5 @@
 ﻿import { Verification } from "../models/Verification.js";
+import { getPagination, makePaginationMeta } from "../utils/pagination.js";
 
 export async function createVerification(req, res) {
   const record = await Verification.create(req.body);
@@ -12,6 +13,18 @@ export async function listVerifications(req, res) {
   if (date) q.date = date;
   if (session) q.session = session;
 
-  const list = await Verification.find(q).sort({ createdAt: -1 });
-  res.json({ data: list });
+  const pagination = getPagination(req.query);
+
+  if (!pagination.enabled) {
+    const list = await Verification.find(q).sort({ createdAt: -1 });
+    return res.json({ data: list });
+  }
+
+  const { page, limit, skip } = pagination;
+  const [list, total] = await Promise.all([
+    Verification.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Verification.countDocuments(q),
+  ]);
+
+  return res.json({ data: list, meta: makePaginationMeta(total, page, limit) });
 }

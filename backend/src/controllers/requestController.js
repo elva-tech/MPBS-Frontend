@@ -1,12 +1,25 @@
 ﻿import { Request } from "../models/Request.js";
 import { User } from "../models/User.js";
 import bcrypt from "bcryptjs";
+import { getPagination, makePaginationMeta } from "../utils/pagination.js";
 
 export async function listRequests(req, res) {
   const { status } = req.query;
   const q = status ? { status } : {};
-  const list = await Request.find(q).sort({ createdAt: -1 });
-  res.json({ data: list });
+  const pagination = getPagination(req.query);
+
+  if (!pagination.enabled) {
+    const list = await Request.find(q).sort({ createdAt: -1 });
+    return res.json({ data: list });
+  }
+
+  const { page, limit, skip } = pagination;
+  const [list, total] = await Promise.all([
+    Request.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Request.countDocuments(q),
+  ]);
+
+  return res.json({ data: list, meta: makePaginationMeta(total, page, limit) });
 }
 
 export async function listMyRequests(req, res) {

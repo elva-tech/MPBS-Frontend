@@ -30,7 +30,7 @@ function Start-Backend {
     
     # Start backend in new window
     $backendPath = Join-Path $PSScriptRoot "backend"
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$backendPath'; npm run start" -WindowStyle Normal
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$backendPath'; npm run dev" -WindowStyle Normal
     
     # Wait for backend to be ready
     Write-Host "  → Waiting for backend to be ready..." -ForegroundColor Gray

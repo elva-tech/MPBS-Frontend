@@ -333,6 +333,12 @@ export default function MilkCollection() {
         <div className="flex items-center gap-2 text-sm text-[#1E4B6B]">
           {username ? (
             <>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 1 0-14 0v5l-2 2v1h18v-1l-2-2Z"
+                />
+              </svg>
               <span>{username}</span>
               <div className="h-7 w-7 rounded border border-[#CBD7E6] bg-white grid place-items-center text-[11px] font-semibold text-[#1E4B6B]">
                 {avatarLetter}

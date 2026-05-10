@@ -23,6 +23,16 @@ body {
   box-shadow: none;
 }
 
+/* Keep app non-selectable by default, but allow normal typing/editing in form fields */
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  caret-color: auto;
+}
+
 body.dashboard-no-scroll {
   overflow: hidden;
 }

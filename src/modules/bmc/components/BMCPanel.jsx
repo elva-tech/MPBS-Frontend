@@ -1,20 +1,26 @@
 import { calcEntry, calcSession, genReport, isRowValid } from "../utils/engine";
 
-function BmcRow({ row, idx, onChange }) {
+const MILK_TYPES = ["Cow", "Buffalo"];
+
+function BmcRow({ row, idx, onChange, selectedTypes }) {
   const f = parseFloat(row.fat);
   const s = parseFloat(row.snf);
   const q = parseFloat(row.qty);
   const hasAll =
     row.type && !Number.isNaN(f) && f > 0 && !Number.isNaN(s) && s > 0 && !Number.isNaN(q) && q > 0;
   const result = hasAll ? calcEntry(row.type, f, s, q) : null;
+  const availableTypes = MILK_TYPES.filter((type) => type === row.type || !selectedTypes.includes(type));
 
   return (
     <tr>
       <td>
         <select className="bmc-type-select" value={row.type} onChange={(e) => onChange(idx, "type", e.target.value)}>
           <option value="">Select Type</option>
-          <option value="Cow">Cow</option>
-          <option value="Buffalo">Buffalo</option>
+          {availableTypes.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
         </select>
       </td>
       <td>
@@ -61,6 +67,7 @@ function BmcRow({ row, idx, onChange }) {
 }
 
 export default function BMCPanel({ bmcRows, onChange, societyRows, societyName }) {
+  const selectedTypes = bmcRows.map((row) => row.type).filter(Boolean);
   const validBmc = bmcRows
     .filter(isRowValid)
     .map((r) => ({
@@ -103,7 +110,7 @@ export default function BMCPanel({ bmcRows, onChange, societyRows, societyName }
           </thead>
           <tbody>
             {bmcRows.map((row, idx) => (
-              <BmcRow key={idx} row={row} idx={idx} onChange={onChange} />
+              <BmcRow key={idx} row={row} idx={idx} onChange={onChange} selectedTypes={selectedTypes} />
             ))}
           </tbody>
         </table>

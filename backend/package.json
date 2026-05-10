@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "mpbs-backend",
     "version":  "1.0.0",
     "type":  "module",
@@ -6,8 +6,13 @@
     "scripts":  {
                     "dev":  "node scripts/dev.js",
                     "start":  "node src/server.js",
+                    "start:prod": "node src/server.js",
+                    "test": "node --test",
                     "seed":  "node scripts/seed.js",
-                    "set-admin": "node scripts/setAdminCredentials.js"
+                    "set-admin": "node scripts/setAdminCredentials.js",
+                    "set-user": "node scripts/setUserCredentials.js",
+                    "provision-map": "node scripts/provisionMappedUsers.js",
+                    "check-quality": "node scripts/checkQualityRule.js"
                 },
     "dependencies":  {
                          "bcryptjs":  "^2.4.3",
@@ -25,5 +30,9 @@
                          "helmet":  "^8.1.0",
                          "hpp":  "^0.2.3",
                          "multer":  "^2.0.2"
-                     }
+                                         },
+        "devDependencies": {
+            "supertest": "^7.1.1"
+        }
 }
+

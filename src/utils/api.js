@@ -144,6 +144,21 @@ export function getBmcDashboard(params = {}) {
   return request(`/dashboards/bmc${qs ? `?${qs}` : ""}`);
 }
 
+export function getAdminDashboard() {
+  return request("/dashboards/admin");
+}
+
+export function getDairyDashboard(params = {}) {
+  const search = new URLSearchParams();
+  if (params.dairyUnit) search.set("dairyUnit", params.dairyUnit);
+  if (params.date) search.set("date", params.date);
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  if (params.session) search.set("session", params.session);
+  const qs = search.toString();
+  return request(`/dashboards/dairy${qs ? `?${qs}` : ""}`);
+}
+
 export function login(body) {
   return request("/auth/login", {
     method: "POST",
@@ -188,10 +203,44 @@ export function listNotifications(params = {}) {
   return request(`/notifications${qs ? `?${qs}` : ""}`);
 }
 
+export async function listNotificationsForRole(role) {
+  if (!role || role === "All") {
+    return listNotifications({ role: "All" });
+  }
+
+  const [roleRes, allRes] = await Promise.all([
+    listNotifications({ role }),
+    listNotifications({ role: "All" }),
+  ]);
+
+  const mergedMap = new Map();
+  for (const item of [...(roleRes?.data || []), ...(allRes?.data || [])]) {
+    mergedMap.set(item._id, item);
+  }
+
+  const merged = Array.from(mergedMap.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  return { data: merged };
+}
+
 export function createNotification(body) {
   return request("/notifications", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function markNotificationAsRead(notificationId) {
+  return request(`/notifications/${notificationId}/read`, {
+    method: "PATCH",
+  });
+}
+
+export function archiveNotification(notificationId) {
+  return request(`/notifications/${notificationId}`, {
+    method: "DELETE",
   });
 }
 

@@ -162,13 +162,14 @@ export default function AddUserModal({ onClose, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    await onSubmit({
-      ...formData,
-      role,
-      status: "pending",
-      requestedAt: new Date().toISOString()
-    });
-    setLoading(false);
+    try {
+      await onSubmit({
+        ...formData,
+        role,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectedDistrict = DISTRICTS.find(d => d.name === formData.district);
@@ -212,6 +213,12 @@ export default function AddUserModal({ onClose, onSubmit }) {
               </button>
             </div>
           </div>
+
+          {(role === "Society" || role === "BMC") && (
+            <p className="text-sm text-slate-600">
+              This account will be created as Pending and can log in only after admin approval.
+            </p>
+          )}
 
           {role === "Society" && <SocietyFields formData={formData} handleChange={handleChange} selectedDistrict={selectedDistrict} />}
 

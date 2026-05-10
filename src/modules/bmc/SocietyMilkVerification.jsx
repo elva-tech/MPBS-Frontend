@@ -1,5 +1,5 @@
-﻿import { useCallback, useEffect, useState } from "react";
-import { fetchSocieties, getMilkEntries, createVerification } from "../../utils/api";
+﻿import { Fragment, useCallback, useEffect, useState } from "react";
+import { fetchSocieties, getMilkEntries, createVerification, listNotificationsForRole } from "../../utils/api";
 import "./SocietyMilkVerification.css";
 import EntryTable from "./components/EntryTable";
 import NotificationBell from "./components/NotificationBell";
@@ -8,7 +8,9 @@ import SaveModal from "./components/SaveModal";
 import {
   INITIAL_NOTIFICATIONS,
   BMC_USER,
+  calcEntry,
   calcSession,
+  compareVals,
   genReport,
   isRowValid,
   emptyRow,
@@ -39,6 +41,23 @@ function todayStr() {
   return `${String(d.getDate()).padStart(2, "0")} / ${String(d.getMonth() + 1).padStart(2, "0")} / ${d.getFullYear()}`;
 }
 
+function toTimeAgo(isoDate) {
+  if (!isoDate) return "Just now";
+  const diffSec = Math.max(0, Math.floor((Date.now() - new Date(isoDate).getTime()) / 1000));
+  if (diffSec < 60) return `${diffSec}s ago`;
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return `${Math.floor(diffSec / 86400)}d ago`;
+}
+
+function inferNotifType(message = "") {
+  const msg = message.toLowerCase();
+  if (msg.includes("fail") || msg.includes("error") || msg.includes("mismatch")) return "error";
+  if (msg.includes("pending") || msg.includes("delay") || msg.includes("warning")) return "warning";
+  if (msg.includes("verified") || msg.includes("success")) return "success";
+  return "info";
+}
+
 export default function MilkVerification() {
   const clock = useClock();
   const dateStr = todayStr();
@@ -55,9 +74,14 @@ export default function MilkVerification() {
   const [verifyChoice, setVerifyChoice] = useState(null);
 
   const [saveModal, setSaveModal] = useState(null);
+  const [savedRecord, setSavedRecord] = useState(null);
   const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState("");
 
   const [notifs, setNotifs] = useState(INITIAL_NOTIFICATIONS);
+
+  const readKey = "bmc_notif_read_ids";
+  const dismissedKey = "bmc_notif_dismissed_ids";
 
   useEffect(() => {
     async function loadSocieties() {
@@ -87,16 +111,69 @@ export default function MilkVerification() {
     loadSocieties();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    const parseSet = (key) => {
+      try {
+        return new Set(JSON.parse(localStorage.getItem(key) || "[]"));
+      } catch {
+        return new Set();
+      }
+    };
+
+    const loadNotifications = async () => {
+      try {
+        const response = await listNotificationsForRole("BMC");
+        if (!active) return;
+
+        const readSet = parseSet(readKey);
+        const dismissedSet = parseSet(dismissedKey);
+        const mapped = (response?.data || [])
+          .filter((n) => !dismissedSet.has(n._id))
+          .map((n) => ({
+            id: n._id,
+            type: inferNotifType(n.message),
+            title: `For ${n.sentToRole}`,
+            desc: n.message,
+            time: toTimeAgo(n.createdAt),
+            read: readSet.has(n._id),
+          }));
+
+        setNotifs(mapped);
+      } catch {
+        if (!active) return;
+      }
+    };
+
+    loadNotifications();
+    const id = setInterval(loadNotifications, 60000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, []);
+
   const handleSocietyChange = async (e) => {
     const name = e.target.value;
     if (!name) {
       setSelectedSoc(null);
+      setSavedRecord(null);
       return;
     }
     const soc = societies.find((s) => s.name === name);
     setSelectedSoc({ ...soc });
+
+    try {
+      const all = JSON.parse(localStorage.getItem("milkVerifications") || "{}");
+      setSavedRecord(all[soc.name] || null);
+    } catch {
+      setSavedRecord(null);
+    }
+
     setVerifyChoice(null);
     setSaveError("");
+    setSaveSuccess("");
 
     // Fetch milk entries for the selected society
     try {
@@ -147,6 +224,14 @@ export default function MilkVerification() {
   const handleBmcChange = useCallback((idx, field, val) => {
     setBmcRows((prev) => {
       const next = [...prev];
+
+      if (field === "type" && val) {
+        const duplicateIndex = next.findIndex((row, rowIndex) => rowIndex !== idx && row.type === val);
+        if (duplicateIndex !== -1) {
+          next[duplicateIndex] = emptyRow();
+        }
+      }
+
       next[idx] = { ...next[idx], [field]: val };
       return next;
     });
@@ -154,6 +239,7 @@ export default function MilkVerification() {
 
   const handleVerify = (choice) => {
     setVerifyChoice(choice);
+    setSaveSuccess("");
     if (choice === "yes") setBmcRows([emptyRow(), emptyRow()]);
   };
 
@@ -167,14 +253,19 @@ export default function MilkVerification() {
 
     if (!validRows.length) {
       setSaveError("Please fill in at least one complete row before saving.");
+      setSaveSuccess("");
       setTimeout(() => setSaveError(""), 4000);
       return;
     }
     if (!verifyChoice) {
       setSaveError("Please select YES or NO for verification before saving.");
+      setSaveSuccess("");
       setTimeout(() => setSaveError(""), 4000);
       return;
     }
+
+    setSaveError("");
+    setSaveSuccess("");
 
     const session = calcSession(validRows);
 
@@ -186,10 +277,17 @@ export default function MilkVerification() {
         snf: parseFloat(r.snf),
         qty: parseFloat(r.qty),
       }));
+      const hasDuplicateTypes = new Set(validBmc.map((entry) => entry.type)).size !== validBmc.length;
+      if (hasDuplicateTypes) {
+        setSaveError("Each BMC row must use a different milk type.");
+        setSaveSuccess("");
+        setTimeout(() => setSaveError(""), 4000);
+        return;
+      }
       if (validBmc.length) bmcEntries = validBmc;
     }
 
-    let comparisonStatus = verifyChoice === "yes" ? "VERIFIED" : "-";
+    let comparisonStatus = verifyChoice === "yes" ? "? VERIFIED" : "?";
     if (verifyChoice === "no" && bmcEntries) {
       const rep = genReport(selectedSoc.name, validRows, bmcEntries);
       comparisonStatus = rep.status;
@@ -199,7 +297,7 @@ export default function MilkVerification() {
       society: selectedSoc.name,
       savedAt: new Date().toLocaleString("en-IN"),
       savedBy: bmcUserName,
-      verifyChoice: verifyChoice === "yes" ? "YES - Values Match" : "NO - BMC Values Entered",
+      verifyChoice: verifyChoice === "yes" ? "YES ? Values Match" : "NO ? BMC Values Entered",
       entries: session.entries,
       totalQty: session.totalQty,
       totalAmt: session.totalAmtFmt,
@@ -211,7 +309,7 @@ export default function MilkVerification() {
       const all = JSON.parse(localStorage.getItem("milkVerifications") || "{}");
       all[selectedSoc.name] = record;
       localStorage.setItem("milkVerifications", JSON.stringify(all));
-    } catch (_) {
+    } catch {
       // ignore storage errors
     }
 
@@ -231,18 +329,70 @@ export default function MilkVerification() {
       });
     } catch (err) {
       setSaveError("Failed to save verification: " + err.message);
+      setSaveSuccess("");
+      setTimeout(() => setSaveError(""), 4000);
+      return;
     }
+
     setSocieties((prev) =>
       prev.map((s) => (s.name === selectedSoc.name ? { ...s, status: "verified" } : s)),
     );
     setSelectedSoc((prev) => ({ ...prev, status: "verified" }));
+    setSaveSuccess(
+      verifyChoice === "yes"
+        ? `Verification saved for ${selectedSoc.name}. Values match.`
+        : `Verification saved for ${selectedSoc.name}. BMC values recorded.`
+    );
+    setTimeout(() => setSaveSuccess(""), 4000);
+    setSavedRecord(record);
     setSaveModal(record);
   };
 
-  const markRead = (id) => setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-  const markAllRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-  const dismissNotif = (id) => setNotifs((prev) => prev.filter((n) => n.id !== id));
-  const clearAll = () => setNotifs([]);
+  const markRead = (id) => {
+    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    try {
+      const existing = new Set(JSON.parse(localStorage.getItem(readKey) || "[]"));
+      existing.add(id);
+      localStorage.setItem(readKey, JSON.stringify(Array.from(existing)));
+    } catch {
+      // ignore local storage errors
+    }
+  };
+
+  const markAllRead = () => {
+    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      const allIds = notifs.map((n) => n.id);
+      const existing = new Set(JSON.parse(localStorage.getItem(readKey) || "[]"));
+      allIds.forEach((id) => existing.add(id));
+      localStorage.setItem(readKey, JSON.stringify(Array.from(existing)));
+    } catch {
+      // ignore local storage errors
+    }
+  };
+
+  const dismissNotif = (id) => {
+    setNotifs((prev) => prev.filter((n) => n.id !== id));
+    try {
+      const existing = new Set(JSON.parse(localStorage.getItem(dismissedKey) || "[]"));
+      existing.add(id);
+      localStorage.setItem(dismissedKey, JSON.stringify(Array.from(existing)));
+    } catch {
+      // ignore local storage errors
+    }
+  };
+
+  const clearAll = () => {
+    const ids = notifs.map((n) => n.id);
+    setNotifs([]);
+    try {
+      const existing = new Set(JSON.parse(localStorage.getItem(dismissedKey) || "[]"));
+      ids.forEach((id) => existing.add(id));
+      localStorage.setItem(dismissedKey, JSON.stringify(Array.from(existing)));
+    } catch {
+      // ignore local storage errors
+    }
+  };
 
   const statusClass = selectedSoc?.status === "verified" ? "verified" : "not-verified";
   const statusText = selectedSoc?.status === "verified" ? "Verified" : "Not Verified";
@@ -262,13 +412,6 @@ export default function MilkVerification() {
             </svg>
             {clock}
           </div>
-          <NotificationBell
-            notifs={notifs}
-            onMarkRead={markRead}
-            onMarkAll={markAllRead}
-            onDismiss={dismissNotif}
-            onClearAll={clearAll}
-          />
         </div>
       </header>
 
@@ -353,6 +496,7 @@ export default function MilkVerification() {
 
             <div className="save-row">
               {saveError && <span className="save-error">{saveError}</span>}
+              {saveSuccess && <span className="save-success">{saveSuccess}</span>}
               <button className="save-btn" onClick={handleSave}>
                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path d="M5 13l4 4L19 7" />
@@ -360,6 +504,144 @@ export default function MilkVerification() {
                 Save Verification
               </button>
             </div>
+
+            {savedRecord && (
+              <div className="saved-record-wrap">
+                <div className="saved-record-head">
+                  <div className="saved-record-title">Saved Verification Details</div>
+                  <div className="saved-record-meta">
+                    {savedRecord.savedAt} | {savedRecord.savedBy}
+                  </div>
+                </div>
+
+                <div className="saved-record-badges">
+                  <span className="saved-badge">Status: {savedRecord.comparisonStatus}</span>
+                  <span className="saved-badge">Physical Check: {savedRecord.verifyChoice}</span>
+                  <span className="saved-badge">Total Qty: {savedRecord.totalQty} L</span>
+                  <span className="saved-badge">Total Amount: {savedRecord.totalAmt}</span>
+                </div>
+
+                <div className="saved-section-title">Society Entry Details</div>
+                <table className="society-main-table saved-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Fat%</th>
+                      <th>SNF%</th>
+                      <th>Qty (L)</th>
+                      <th>Rate</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {savedRecord.entries.map((entry, idx) => (
+                      <tr key={"soc-" + idx}>
+                        <td>{entry.type}</td>
+                        <td>{entry.fat}</td>
+                        <td>{entry.snf}</td>
+                        <td>{entry.qty}</td>
+                        <td>{entry.rateFmt}</td>
+                        <td>{entry.amtFmt}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {savedRecord.bmcEntries?.length > 0 && (
+                  <>
+                    <div className="saved-section-title">BMC Actual Values</div>
+                    <table className="society-main-table saved-table">
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>Fat%</th>
+                          <th>SNF%</th>
+                          <th>Qty (L)</th>
+                          <th>Rate</th>
+                          <th>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {savedRecord.bmcEntries.map((entry, idx) => {
+                          const bmcCalc = calcEntry(entry.type, entry.fat, entry.snf, entry.qty);
+                          return (
+                            <tr key={"bmc-" + idx}>
+                              <td>{entry.type}</td>
+                              <td>{entry.fat}</td>
+                              <td>{entry.snf}</td>
+                              <td>{entry.qty}</td>
+                              <td>{bmcCalc.rateFmt}</td>
+                              <td>{bmcCalc.amtFmt}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    <div className="saved-section-title">Data Comparison (Society vs BMC)</div>
+                    <table className="society-main-table saved-table">
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>Source</th>
+                          <th>Fat%</th>
+                          <th>SNF%</th>
+                          <th>Qty (L)</th>
+                          <th>Rate</th>
+                          <th>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {savedRecord.entries.map((socEntry, idx) => {
+                          const bmcEntry =
+                            savedRecord.bmcEntries.find((entry) => entry.type === socEntry.type) ||
+                            savedRecord.bmcEntries[idx];
+
+                          if (!bmcEntry) return null;
+
+                          const bmcCalc = calcEntry(bmcEntry.type, bmcEntry.fat, bmcEntry.snf, bmcEntry.qty);
+                          const cmp = compareVals(socEntry, bmcEntry);
+
+                          const withFlag = (fieldName, value) => {
+                            if (cmp.fields[fieldName].ok) return value;
+                            const isUp = cmp.fields[fieldName].bv > cmp.fields[fieldName].sv;
+                            return (
+                              <>
+                                {value}{" "}
+                                <span className={`saved-delta ${isUp ? "up" : "down"}`}>{isUp ? "▲" : "▼"}</span>
+                              </>
+                            );
+                          };
+
+                          return (
+                            <Fragment key={"cmp-" + idx}>
+                              <tr>
+                                <td>{socEntry.type}</td>
+                                <td>Society</td>
+                                <td>{socEntry.fat}</td>
+                                <td>{socEntry.snf}</td>
+                                <td>{socEntry.qty}</td>
+                                <td>{socEntry.rateFmt}</td>
+                                <td>{socEntry.amtFmt}</td>
+                              </tr>
+                              <tr className="saved-bmc-row">
+                                <td></td>
+                                <td>BMC</td>
+                                <td>{withFlag("fat", bmcEntry.fat)}</td>
+                                <td>{withFlag("snf", bmcEntry.snf)}</td>
+                                <td>{withFlag("qty", bmcEntry.qty)}</td>
+                                <td>{bmcCalc.rateFmt}</td>
+                                <td>{bmcCalc.amtFmt}</td>
+                              </tr>
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="empty-state">
@@ -384,6 +666,8 @@ export default function MilkVerification() {
     </div>
   );
 }
+
+
 
 
 

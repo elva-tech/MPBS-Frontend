@@ -20,25 +20,26 @@ import {
   YAxis,
 } from "recharts";
 import {
-  fetchTopStatsMock,
-  fetchMilkProcuredMock,
-  fetchFinanceMock,
-  fetchProcurementMock,
-  fetchDairyUnitsMock,
-  fetchDistrictRevenueMock,
-  fetchMonthlyQualityMock,
-  fetchRevenueMock,
-} from "../../mock/adminDashboardData";
+  getAdminDashboard,
+} from "../../utils/api";
 
 const COLOR_PANEL = "#FFFFFF";
 const COLOR_RED = "#1E4B6B";
 const COLOR_PINK = "#9DB5CC";
 const COLOR_TEXT = "#1E4B6B";
-const COLOR_TOP_CARD_BG = "#FFFFFF";
-const COLOR_TOP_CARD_BORDER = "#D5DFEC";
-const COLOR_TOP_CARD_ICON_BG = "#E4EBF5";
-const COLOR_TOP_CARD_TITLE = "#617895";
-const COLOR_TOP_CARD_VALUE = "#18476D";
+const COLOR_PAGE_GRADIENT = "linear-gradient(180deg,#F7FAFF 0%,#EEF4FF 100%)";
+const COLOR_CARD_BG_A = "#F7FAFF";
+const COLOR_CARD_BG_B = "#F3F7FF";
+const COLOR_CARD_BORDER = "#D7E4FF";
+const COLOR_TOP_CARD_ICON_BG = "#EAF1FF";
+const COLOR_TOP_CARD_TITLE = "#5B6B7F";
+const COLOR_TOP_CARD_VALUE = "#1E4B6B";
+const TOP_CARD_STYLES = [
+  { bg: "#F4F0FB", border: "#D9CAE9", iconBg: "#F1ECF8", iconBorder: "#D9CAE9" },
+  { bg: "#EEF4FF", border: "#CFE0FF", iconBg: "#EAF1FF", iconBorder: "#CFE0FF" },
+  { bg: "#F8F3E8", border: "#EFD5B4", iconBg: "#F5EBDD", iconBorder: "#EFD5B4" },
+  { bg: "#EEF2F7", border: "#D4E0EF", iconBg: "#EAF1FF", iconBorder: "#D4E0EF" },
+];
 
 const iconMap = {
   Building2,
@@ -86,31 +87,42 @@ function withDataDrivenBlueScale(items) {
   });
 }
 
-function SmallDonut({ data, size = 75 }) {
+function SmallDonut({ data, size = 92, suffix = "" }) {
+  const center = size / 2;
+  const outerRadius = Math.floor(size * 0.44);
+  const innerRadius = Math.floor(size * 0.3);
+
   return (
-    <ResponsiveContainer width={size} height={size}>
-      <PieChart>
+    <div style={{ width: size, height: size, flexShrink: 0 }}>
+      <PieChart width={size} height={size}>
         <Pie
           data={data}
           dataKey="value"
-          innerRadius={24}
-          outerRadius={34}
+          nameKey="name"
+          cx={center}
+          cy={center}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius}
           stroke="none"
           startAngle={90}
           endAngle={-270}
         />
+        <Tooltip
+          formatter={(value, name) => [`${value}${suffix}`, name]}
+          contentStyle={{ borderRadius: 8, border: "1px solid #d5dfec" }}
+        />
       </PieChart>
-    </ResponsiveContainer>
+    </div>
   );
 }
 
 function BulletLegend({ items, suffix = "" }) {
   return (
-    <div className="space-y-2 text-xs md:text-sm" style={{ color: COLOR_TEXT }}>
+    <div className="space-y-2 text-xs" style={{ color: "#6B7FA0" }}>
       {items.map((item) => (
         <div key={item.name} className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.fill }} />
-          <span>
+          <span className="font-semibold">
             {item.name} - {item.value}
             {suffix}
           </span>
@@ -123,14 +135,14 @@ function BulletLegend({ items, suffix = "" }) {
 function MiniPanel({ title, data, suffix = "" }) {
   return (
     <div
-      className="rounded-xl p-3 shadow-[0_2px_6px_rgba(0,0,0,0.2)]"
-      style={{ background: COLOR_PANEL }}
+      className="rounded-xl border p-4 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
+      style={{ background: COLOR_CARD_BG_A, borderColor: COLOR_CARD_BORDER }}
     >
-      <h3 className="text-[15px] font-medium" style={{ color: COLOR_TEXT }}>
+      <h3 className="text-sm font-semibold" style={{ color: COLOR_TEXT }}>
         {title}
       </h3>
       <div className="mt-2 flex items-center justify-between gap-4">
-        <SmallDonut data={data} />
+        <SmallDonut data={data} suffix={suffix} />
         <BulletLegend items={data} suffix={suffix} />
       </div>
     </div>
@@ -148,34 +160,27 @@ export default function AdminDashboard() {
   const [districtRevenueBase, setDistrictRevenueBase] = useState([]);
   const [monthlyQualityData, setMonthlyQualityData] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
+  const [revenueLegend, setRevenueLegend] = useState({ nov: "Previous Year", dec: "Current Year" });
   const [selectedQualityMonth, setSelectedQualityMonth] = useState("");
 
   useEffect(() => {
     let active = true;
 
-    async function loadMockData() {
+    async function loadDashboardData() {
       setLoading(true);
       setError("");
       try {
-        const [
-          stats,
-          milkProcured,
-          finance,
-          procurement,
-          dairyUnits,
-          districtRevenue,
-          monthlyQuality,
-          revenue,
-        ] = await Promise.all([
-          fetchTopStatsMock(),
-          fetchMilkProcuredMock(),
-          fetchFinanceMock(),
-          fetchProcurementMock(),
-          fetchDairyUnitsMock(),
-          fetchDistrictRevenueMock(),
-          fetchMonthlyQualityMock(),
-          fetchRevenueMock(),
-        ]);
+        const payload = await getAdminDashboard();
+        const dashboard = payload?.data || {};
+        const stats = Array.isArray(dashboard.topStats) ? dashboard.topStats : [];
+        const milkProcured = Array.isArray(dashboard.milkProcured) ? dashboard.milkProcured : [];
+        const finance = Array.isArray(dashboard.finance) ? dashboard.finance : [];
+        const procurement = Array.isArray(dashboard.procurement) ? dashboard.procurement : [];
+        const dairyUnits = Array.isArray(dashboard.dairyUnits) ? dashboard.dairyUnits : [];
+        const districtRevenue = Array.isArray(dashboard.districtRevenue) ? dashboard.districtRevenue : [];
+        const monthlyQuality = Array.isArray(dashboard.monthlyQuality) ? dashboard.monthlyQuality : [];
+        const revenue = Array.isArray(dashboard.revenue) ? dashboard.revenue : [];
+        const legend = dashboard.revenueLegend || { nov: "Previous Year", dec: "Current Year" };
 
         if (!active) return;
         setTopStats(stats);
@@ -186,16 +191,17 @@ export default function AdminDashboard() {
         setDistrictRevenueBase(districtRevenue);
         setMonthlyQualityData(monthlyQuality);
         setRevenueData(revenue);
+        setRevenueLegend(legend);
         setSelectedQualityMonth(monthlyQuality[0]?.month || "");
       } catch {
         if (!active) return;
-        setError("Failed to load mock dashboard data");
+        setError("Failed to load dashboard data");
       } finally {
         if (active) setLoading(false);
       }
     }
 
-    loadMockData();
+    loadDashboardData();
     return () => {
       active = false;
     };
@@ -246,9 +252,9 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-4 md:p-5" style={{ background: "#EFF5FF" }}>
+      <div className="min-h-screen p-6" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
         <div className="mx-auto max-w-[1180px]">
-          <p className="text-sm text-[#1E4B6B]">Loading dashboard from mock data...</p>
+          <p className="text-sm text-[#1E4B6B]">Loading dashboard data...</p>
         </div>
       </div>
     );
@@ -256,7 +262,7 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen p-4 md:p-5" style={{ background: "#EFF5FF" }}>
+      <div className="min-h-screen p-6" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
         <div className="mx-auto max-w-[1180px]">
           <p className="text-sm text-red-600">{error}</p>
         </div>
@@ -265,98 +271,101 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen p-3 md:p-4" style={{ background: "#EFF5FF" }}>
-      <div className="mx-auto max-w-[1180px] space-y-3">
-        <div className="rounded-md border border-[#a4b5c6] p-3" style={{ background: COLOR_PANEL }}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {topStats.map((item) => {
+    <div className="min-h-screen p-6" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
+      <div className="mx-auto max-w-[1180px] space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {topStats.map((item, index) => {
               const Icon = iconMap[item.icon] || Building2;
+              const cardStyle = TOP_CARD_STYLES[index % TOP_CARD_STYLES.length];
               return (
                 <div
                   key={item.label}
-                  className="flex items-center gap-2 rounded-xl border px-3 py-3"
+                  className="flex h-20 items-center gap-2.5 rounded-lg border px-3 shadow-[0_6px_14px_rgba(15,41,74,0.12)]"
                   style={{
-                    background: COLOR_TOP_CARD_BG,
-                    borderColor: COLOR_TOP_CARD_BORDER,
-                    boxShadow: "0 1px 0 rgba(255,255,255,0.8) inset",
+                    background: cardStyle.bg,
+                    borderColor: cardStyle.border,
                   }}
                 >
                   <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
                     style={{
-                      background: COLOR_TOP_CARD_ICON_BG,
-                      border: `1px solid ${COLOR_TOP_CARD_BORDER}`,
+                      background: cardStyle.iconBg,
+                      border: `1px solid ${cardStyle.iconBorder}`,
                     }}
                   >
-                    <Icon className="h-6 w-6" style={{ color: COLOR_TOP_CARD_VALUE }} strokeWidth={1.8} />
+                    <Icon className="h-5 w-5" style={{ color: COLOR_TOP_CARD_VALUE }} strokeWidth={2} />
                   </div>
                   <div className="leading-tight">
-                    <div className="font-semibold" style={{ color: COLOR_TOP_CARD_TITLE, fontSize: "14px" }}>
+                    <div className="font-medium" style={{ color: COLOR_TOP_CARD_TITLE, fontSize: "12px" }}>
                       {item.label}
                     </div>
-                    <div className="font-bold" style={{ color: COLOR_TOP_CARD_VALUE, fontSize: "32px" }}>
+                    <div className="font-semibold" style={{ color: COLOR_TOP_CARD_VALUE, fontSize: "28px" }}>
                       {item.value}
                     </div>
                   </div>
                 </div>
               );
             })}
-          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.3fr_1fr_1fr]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr_1fr]">
           <div
-            className="rounded-xl p-4 shadow-[0_2px_6px_rgba(0,0,0,0.2)]"
-            style={{ background: COLOR_PANEL }}
+            className="rounded-xl border p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
+            style={{ background: COLOR_CARD_BG_A, borderColor: COLOR_CARD_BORDER }}
           >
-            <h2 className="text-[28px] font-semibold" style={{ color: COLOR_TEXT }}>
+            <h2 className="text-sm font-semibold" style={{ color: COLOR_TEXT }}>
               Milk Procured
             </h2>
-            <div className="mt-3 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="h-[190px] w-[190px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+            <div className="mt-5 flex flex-col items-center gap-5 md:flex-row md:items-center md:justify-between">
+              <div className="h-[220px] w-[220px] shrink-0">
+                <PieChart width={220} height={220}>
                     <Pie
                       data={milkProcuredData}
                       dataKey="value"
-                      innerRadius={50}
-                      outerRadius={78}
+                      nameKey="name"
+                      cx={110}
+                      cy={110}
+                      innerRadius={58}
+                      outerRadius={90}
                       stroke="none"
                       startAngle={90}
                       endAngle={-270}
                     />
-                  </PieChart>
-                </ResponsiveContainer>
+                    <Tooltip
+                      formatter={(value, name) => [`${value}%`, name]}
+                      contentStyle={{ borderRadius: 8, border: "1px solid #d5dfec" }}
+                    />
+                </PieChart>
               </div>
               <BulletLegend items={milkProcuredData} suffix="%" />
             </div>
           </div>
 
-          <div className="space-y-3 lg:col-span-2">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="space-y-4 lg:col-span-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <MiniPanel title="Finance" data={financeData} suffix="%" />
               <MiniPanel title="Procurement" data={procurementData} />
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <MiniPanel title="Dairy Units - LLPD" data={dairyUnitsData} />
               <MiniPanel title="District Wise Revenue" data={districtRevenueData} />
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div
-            className="rounded-xl p-3 shadow-[0_2px_6px_rgba(0,0,0,0.2)]"
-            style={{ background: COLOR_PANEL }}
+            className="rounded-xl border p-4 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
+            style={{ background: COLOR_CARD_BG_A, borderColor: COLOR_CARD_BORDER }}
           >
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-[28px] font-semibold" style={{ color: COLOR_TEXT }}>
+              <h3 className="text-sm font-semibold" style={{ color: COLOR_TEXT }}>
                 Month Wise Milk Quality
               </h3>
               <select
                 value={selectedQualityMonth}
                 onChange={(e) => setSelectedQualityMonth(e.target.value)}
-                className="rounded-md border border-[#c6d3df] bg-[#eceff2] px-3 py-1 text-sm text-[#313846]"
+                className="rounded-md border border-[#c6d3df] bg-[#f1f6ff] px-3 py-1 text-xs font-semibold text-[#5B6B7F]"
               >
                 {qualityMonthOptions.map((month) => (
                   <option key={month} value={month}>
@@ -365,7 +374,7 @@ export default function AdminDashboard() {
                 ))}
               </select>
             </div>
-            <div className="h-[190px]">
+            <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={filteredMonthlyQualityData} margin={{ top: 15, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="4 5" vertical={false} stroke="#b8cad9" />
@@ -377,21 +386,21 @@ export default function AdminDashboard() {
                     formatter={(value) => <span style={{ color: COLOR_TEXT, fontSize: 14 }}>{value}</span>}
                     iconType="circle"
                   />
-                  <Bar dataKey="good" name="Good Milk" fill={COLOR_RED} radius={[2, 2, 0, 0]} maxBarSize={30} />
-                  <Bar dataKey="penalised" name="Penalised" fill={COLOR_PINK} radius={[2, 2, 0, 0]} maxBarSize={30} />
+                  <Bar dataKey="good" name="Good Milk" fill={COLOR_RED} radius={[2, 2, 0, 0]} maxBarSize={38} />
+                  <Bar dataKey="penalised" name="Penalised" fill={COLOR_PINK} radius={[2, 2, 0, 0]} maxBarSize={38} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           <div
-            className="rounded-xl p-3 shadow-[0_2px_6px_rgba(0,0,0,0.2)]"
-            style={{ background: COLOR_PANEL }}
+            className="rounded-xl border p-4 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
+            style={{ background: COLOR_CARD_BG_A, borderColor: COLOR_CARD_BORDER }}
           >
-            <h3 className="text-[28px] font-semibold" style={{ color: COLOR_TEXT }}>
+            <h3 className="text-sm font-semibold" style={{ color: COLOR_TEXT }}>
               Revenue
             </h3>
-            <div className="h-[220px]">
+            <div className="h-[255px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={revenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="#b8cad9" vertical={false} />
@@ -404,7 +413,7 @@ export default function AdminDashboard() {
                     iconType="circle"
                     formatter={(value) => (
                       <span style={{ color: COLOR_TEXT, fontSize: 14 }}>
-                        {value === "nov" ? "Nov 2025" : "Dec 2025"}
+                        {value === "nov" ? revenueLegend.nov : revenueLegend.dec}
                       </span>
                     )}
                   />
