@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { authRequired, requireRole } from "../middleware/auth.js";
-import { uploadNotificationAttachment } from "../controllers/uploadController.js";
+import { uploadNotificationAttachment, uploadComplaintAttachment } from "../controllers/uploadController.js";
 import { config } from "../config/env.js";
 
 const router = express.Router();
@@ -16,6 +16,14 @@ router.post(
   requireRole(["Admin"]),
   upload.single("file"),
   uploadNotificationAttachment
+);
+
+router.post(
+  "/complaint",
+  authRequired,
+  requireRole(["Society"]),
+  upload.single("file"),
+  uploadComplaintAttachment
 );
 
 export default router;

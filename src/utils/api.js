@@ -19,6 +19,18 @@ function getToken() {
   return localStorage.getItem("society_token") || localStorage.getItem("auth_token") || "";
 }
 
+function getUploadToken() {
+  return getToken();
+}
+
+async function readJsonSafely(response) {
+  try {
+    return await response.json();
+  } catch (_) {
+    return null;
+  }
+}
+
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -184,7 +196,7 @@ export function createNotification(body) {
 }
 
 export async function uploadNotificationFile(file) {
-  const token = localStorage.getItem("auth_token") || "";
+  const token = getUploadToken();
   const form = new FormData();
   form.append("file", file);
   try {
@@ -193,7 +205,7 @@ export async function uploadNotificationFile(file) {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
     });
-    const payload = await res.json();
+    const payload = await readJsonSafely(res);
     if (!res.ok) throw new Error(payload?.message || "Upload failed");
     return payload;
   } catch (error) {
@@ -206,7 +218,7 @@ export async function uploadNotificationFile(file) {
 }
 
 export async function uploadComplaintFile(file) {
-  const token = localStorage.getItem("auth_token") || "";
+  const token = getUploadToken();
   const form = new FormData();
   form.append("file", file);
   try {
@@ -215,7 +227,7 @@ export async function uploadComplaintFile(file) {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
     });
-    const payload = await res.json();
+    const payload = await readJsonSafely(res);
     if (!res.ok) throw new Error(payload?.message || "Upload failed");
     return payload;
   } catch (error) {

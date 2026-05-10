@@ -40,6 +40,11 @@ BMC User:
   Password: bmc123
   URL: http://localhost:5173/bmc/login
 
+Audit User:
+  Username: audit
+  Password: audit123
+  URL: http://localhost:5173/audit/login
+
 Admin User:
   Username: admin
   Password: admin123

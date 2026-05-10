@@ -9,6 +9,8 @@ const RequestSchema = new mongoose.Schema(
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
     message: { type: String },
     newPasswordHash: { type: String },
+    attachmentName: { type: String },
+    attachmentUrl: { type: String },
   },
   { timestamps: true }
 );

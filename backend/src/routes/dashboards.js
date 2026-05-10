@@ -4,7 +4,7 @@ import { getSocietyDashboard, getBmcDashboard } from "../controllers/dashboardCo
 
 const router = express.Router();
 
-router.use(authRequired, requireRole(["Admin","Society","BMC"]))
+router.use(authRequired, requireRole(["Admin","Society","BMC","Audit"]))
 
 router.get("/society", getSocietyDashboard);
 router.get("/bmc", getBmcDashboard);

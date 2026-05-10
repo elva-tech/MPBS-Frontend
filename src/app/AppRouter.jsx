@@ -30,6 +30,15 @@ import BMCLogin from "../modules/bmc/Login";
 import BMCLayout from "./layout/BmcLayout";
 import BMCAuthGuard from "../shared/components/BmcAuthGaurd";
 
+// ================= AUDIT =================
+import AuditLogin from "../modules/audit/Login";
+import AuditDashboard from "../modules/audit/Dashboard";
+import AuditReports from "../modules/audit/Reports";
+import AuditReviews from "../modules/audit/Reviews";
+import AuditLogs from "../modules/audit/Logs";
+import AuditLayout from "./layout/AuditLayout";
+import AuditAuthGaurd from "../shared/components/AuditAuthGaurd";
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -96,6 +105,24 @@ export default function AppRouter() {
           <Route path="truck-sheet" element={<TruckSheet />} />
           <Route path="reports" element={<Reports />} />
           <Route path="complaints" element={<BmcComplaints />} />
+        </Route>
+
+        {/* ================= AUDIT ROUTES ================= */}
+        <Route path="/audit/login" element={<AuditLogin />} />
+
+        <Route
+          path="/audit"
+          element={
+            <AuditAuthGaurd>
+              <AuditLayout />
+            </AuditAuthGaurd>
+          }
+        >
+          <Route index element={<Navigate to="/audit/dashboard" replace />} />
+          <Route path="dashboard" element={<AuditDashboard />} />
+          <Route path="reports" element={<AuditReports />} />
+          <Route path="reviews" element={<AuditReviews />} />
+          <Route path="logs" element={<AuditLogs />} />
         </Route>
 
         {/* ================= FALLBACK ================= */}
