@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { fetchSocieties, getSocietyDashboard, getBmcDashboard, listUsers } from "../../utils/api";
 
 // Entity lists for each role
 const SOCIETIES = [
