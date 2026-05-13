@@ -15,6 +15,12 @@ import notificationRoutes from "./routes/notifications.js";
 import requestRoutes from "./routes/requests.js";
 import reportRoutes from "./routes/reports.js";
 import uploadRoutes from "./routes/uploads.js";
+import accountsRoutes from "./routes/accounts.js";
+import claimsRoutes from "./routes/claims.js";
+import recoverablesRoutes from "./routes/recoverables.js";
+import schemeBenefitsRoutes from "./routes/schemeBenefits.js";
+import schemeDeductionsRoutes from "./routes/schemeDeductions.js";
+import cycleRoutes from "./routes/cycles.js";
 import { applySecurity } from "./middleware/security.js";
 import { requestIdMiddleware, requestLoggerMiddleware } from "./middleware/requestContext.js";
 import { logError } from "./utils/logger.js";
@@ -150,6 +156,12 @@ export function createApp(options = {}) {
   app.use("/requests", requestRoutes);
   app.use("/reports", reportRoutes);
   app.use("/uploads", uploadRoutes);
+  app.use("/claims", claimsRoutes);
+  app.use("/recoverables", recoverablesRoutes);
+  app.use("/scheme-benefits", schemeBenefitsRoutes);
+  app.use("/scheme-deductions", schemeDeductionsRoutes);
+  app.use("/api/cycles", cycleRoutes);
+  app.use("/", accountsRoutes);
 
   app.use((err, req, res, next) => {
     if (err?.name === "MulterError") {

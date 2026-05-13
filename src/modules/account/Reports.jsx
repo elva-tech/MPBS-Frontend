@@ -39,7 +39,7 @@ function buildReportContent(name, state) {
       "",
       ...billingRows.map(
         (row) =>
-          `${row.societyId}: Recoverables ${formatCurrency(row.totalRecoverables)}, Scheme Deductions ${formatCurrency(row.totalSchemeDeductions)}, Transport Penalty ${formatCurrency(row.transportPenalty)}`
+          `${row.societyId}: Recoverables ${formatCurrency(row.totalRecoverables)}, Scheme Deductions ${formatCurrency(row.totalSchemeDeductions)}`
       ),
     ];
   }
@@ -54,8 +54,11 @@ function buildReportContent(name, state) {
 }
 
 export default function AccountReports() {
+  const state = loadAccountState();
+  const selectedCycle = state.cycles.find((cycle) => cycle.id === state.selectedCycleId) || state.cycles[0];
+  const cycleLabel = selectedCycle ? `${selectedCycle.start} - ${selectedCycle.end}` : "-";
+
   const handleReportClick = (name) => {
-    const state = loadAccountState();
     const lines = buildReportContent(name, state);
     const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -73,7 +76,7 @@ export default function AccountReports() {
       <div className="rounded-xl border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-[#1E4B6B]">Reports</h1>
-          <input type="text" value="01 Dec 2025  -  10 Dec 2025" readOnly className="rounded-lg border border-[#D7E4FF] bg-[#F7FAFF] px-3 py-2 text-sm" />
+          <input type="text" value={cycleLabel} readOnly className="rounded-lg border border-[#D7E4FF] bg-[#F7FAFF] px-3 py-2 text-sm" />
         </div>
         <div className="space-y-3">
           {reportItems.map((item) => (

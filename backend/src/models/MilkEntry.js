@@ -11,6 +11,7 @@ const MilkEntrySchema = new mongoose.Schema(
     qty: { type: Number, required: true },
     rate: { type: Number, required: true },
     amount: { type: Number, required: true },
+    transportPenalty: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
-import { calculateSocietyBilling, loadAccountState, markInvoiceSent } from "./engine";
+import { useEffect, useMemo, useState } from "react";
+import { jsPDF } from "jspdf";
+import { calculateSocietyBilling, hydrateAccountSocieties, loadAccountState, markInvoiceSent } from "./engine";
+import { getMilkEntries } from "../../utils/api";
 
 export default function Invoices() {
   const [state, setState] = useState(() => loadAccountState());
@@ -18,32 +20,108 @@ export default function Invoices() {
     (item) => item.cycleId === selectedCycleId && item.societyId === selectedSocietyId
   );
 
+  useEffect(() => {
+    let active = true;
+    hydrateAccountSocieties().then((next) => {
+      if (active) setState(next);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadMilkEntriesIntoState() {
+      const cycle = state.cycles.find((item) => item.id === selectedCycleId) || state.cycles[0];
+      const societyId = selectedSocietyId;
+
+      if (!cycle?.start && !cycle?.startDate) return;
+
+      try {
+        const response = await getMilkEntries({
+          societyId,
+          from: cycle.start || cycle.startDate,
+          to: cycle.end || cycle.endDate,
+        });
+        if (!active) return;
+
+        const entries = Array.isArray(response?.data?.milkEntries) ? response.data.milkEntries : [];
+        const milkDataRows = entries.map((entry) => {
+          const qty = Number(entry.qty || 0);
+          const amount = Number(entry.amount || 0);
+          const fat = Number(entry.fat || entry.avgFat || 0);
+          const milkType = String(entry.milkType || "").toLowerCase();
+
+          return {
+            cycleId: selectedCycleId,
+            societyId,
+            qty,
+            milkAmount: amount,
+            avgFat: fat,
+            cowQty: milkType === "cow" ? qty : 0,
+            buffaloQty: milkType === "buffalo" ? qty : 0,
+          };
+        });
+
+        setState((current) => ({
+          ...current,
+          milkData: [
+            ...(current.milkData || []).filter((row) => row.cycleId !== selectedCycleId || row.societyId !== societyId),
+            ...milkDataRows,
+          ],
+        }));
+      } catch {
+        if (!active) return;
+      }
+    }
+
+    loadMilkEntriesIntoState();
+    return () => {
+      active = false;
+    };
+  }, [state.cycles, selectedCycleId, selectedSocietyId]);
+
   const formatCurrency = (value) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
 
   const handleDownload = () => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
     const lines = [
-      "Invoice",
+      "RBKVMUL Accounts Invoice",
+      "",
       `Society: ${selectedSocietyId} - ${society?.name || ""}`,
       `Cycle: ${selectedCycleId}`,
       `Date: ${new Date().toLocaleDateString("en-IN")}`,
+      "",
       `Milk Amount: ${formatCurrency(invoice.milkAmount)}`,
       `Claims: +${formatCurrency(invoice.totalClaims)}`,
       `Scheme Benefits: +${formatCurrency(invoice.totalSchemeBenefits)}`,
       `Recoverables: -${formatCurrency(invoice.totalRecoverables)}`,
       `Scheme Deductions: -${formatCurrency(invoice.totalSchemeDeductions)}`,
-      `Transport Penalty: -${formatCurrency(invoice.transportPenalty)}`,
+      "",
       `Final Payable: ${formatCurrency(invoice.netPayable)}`,
     ];
 
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `invoice-${selectedSocietyId}-${selectedCycleId}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    let y = 56;
+    lines.forEach((line, index) => {
+      if (index === 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(15);
+      } else if (line.startsWith("Final Payable")) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(12);
+      }
+      doc.text(line, 48, y);
+      y += 22;
+    });
+
+    doc.save(`invoice-${selectedSocietyId}-${selectedCycleId}.pdf`);
     setMessage("Invoice downloaded.");
   };
 
@@ -75,7 +153,6 @@ export default function Invoices() {
             <div className="flex justify-between py-1"><span>Scheme Benefits</span><span>+{formatCurrency(invoice.totalSchemeBenefits)}</span></div>
             <div className="flex justify-between py-1"><span>Recoverables</span><span>-{formatCurrency(invoice.totalRecoverables)}</span></div>
             <div className="flex justify-between py-1"><span>Scheme Deductions</span><span>-{formatCurrency(invoice.totalSchemeDeductions)}</span></div>
-            <div className="flex justify-between py-1"><span>Transport Penalty</span><span>-{formatCurrency(invoice.transportPenalty)}</span></div>
             <div className="mt-2 border-t border-[#D7E4FF] pt-2 text-3xl font-semibold text-[#1E4B6B]">
               <div className="flex justify-between"><span>Final Payable</span><span>{formatCurrency(invoice.netPayable)}</span></div>
             </div>

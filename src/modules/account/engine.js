@@ -1,4 +1,7 @@
-const STORAGE_KEY = "account_module_state_v1";
+import { fetchBillingCycles, fetchSocieties } from "../../utils/api";
+
+const STORAGE_KEY = "account_module_state_v2";
+const STATE_VERSION = 2;
 
 function makeId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -10,42 +13,15 @@ function clone(value) {
 
 function createInitialState() {
   return {
-    selectedCycleId: "1-10",
-    selectedSocietyId: "S001",
-    societies: [
-      { id: "S001", name: "Ballari Milk Society", district: "Ballari", active: true },
-      { id: "S023", name: "Sandur Milk Society", district: "Ballari", active: true },
-      { id: "S040", name: "Raichur Milk Society", district: "Raichur", active: true },
-    ],
-    cycles: [
-      { id: "1-10", start: "2025-12-01", end: "2025-12-10", status: "CALCULATED" },
-      { id: "11-20", start: "2025-12-11", end: "2025-12-20", status: "OPEN" },
-      { id: "21-END", start: "2025-12-21", end: "2025-12-31", status: "OPEN" },
-    ],
-    milkData: [
-      { cycleId: "1-10", societyId: "S001", qty: 120000, cowQty: 93600, buffaloQty: 26400, milkAmount: 461000, avgFat: 4.3, transportPenalty: 2000 },
-      { cycleId: "1-10", societyId: "S023", qty: 98000, cowQty: 73500, buffaloQty: 24500, milkAmount: 372000, avgFat: 4.1, transportPenalty: 1000 },
-      { cycleId: "1-10", societyId: "S040", qty: 87000, cowQty: 66120, buffaloQty: 20880, milkAmount: 331000, avgFat: 3.9, transportPenalty: 1500 },
-      { cycleId: "11-20", societyId: "S001", qty: 118000, cowQty: 89680, buffaloQty: 28320, milkAmount: 452000, avgFat: 4.2, transportPenalty: 0 },
-      { cycleId: "11-20", societyId: "S023", qty: 95000, cowQty: 71250, buffaloQty: 23750, milkAmount: 361000, avgFat: 4.0, transportPenalty: 0 },
-      { cycleId: "11-20", societyId: "S040", qty: 85000, cowQty: 63750, buffaloQty: 21250, milkAmount: 322000, avgFat: 3.8, transportPenalty: 0 },
-      { cycleId: "21-END", societyId: "S001", qty: 0, cowQty: 0, buffaloQty: 0, milkAmount: 0, avgFat: 0, transportPenalty: 0 },
-      { cycleId: "21-END", societyId: "S023", qty: 0, cowQty: 0, buffaloQty: 0, milkAmount: 0, avgFat: 0, transportPenalty: 0 },
-      { cycleId: "21-END", societyId: "S040", qty: 0, cowQty: 0, buffaloQty: 0, milkAmount: 0, avgFat: 0, transportPenalty: 0 },
-    ],
-    schemes: [
-      { id: "SCH_01", name: "Raitha Trust", type: "DEDUCTION", calculationType: "PER_LITRE", value: 0.1, isActive: true, appliesTo: ["ALL"] },
-      { id: "SCH_02", name: "High Fat Bonus", type: "INCENTIVE", calculationType: "PER_LITRE", value: 2, isActive: true, appliesTo: ["S001", "S023"] },
-      { id: "SCH_03", name: "Festival Bonus", type: "FIXED", calculationType: "FIXED", value: 5000, isActive: false, appliesTo: ["S001"] },
-      { id: "SCH_04", name: "SNF Incentive", type: "CONDITIONAL", calculationType: "CONDITION", value: 1, condition: { metric: "avgFat", op: ">", threshold: 4 }, isActive: true, appliesTo: ["S001", "S023", "S040"] },
-    ],
-    claims: [
-      { id: "CLM_01", cycleId: "1-10", societyId: "S001", reason: "Festival Bonus", amount: 5000, status: "APPLIED", createdAt: new Date().toISOString() },
-    ],
-    recoverables: [
-      { id: "REC_01", societyId: "S001", reason: "Mineral Mixture", totalAmount: 12000, remainingAmount: 12000, installmentAmount: 2000, status: "ACTIVE", createdAt: new Date().toISOString() },
-      { id: "REC_02", societyId: "S023", reason: "Feed Supply", totalAmount: 8500, remainingAmount: 8500, installmentAmount: 1500, status: "ACTIVE", createdAt: new Date().toISOString() },
-    ],
+    version: STATE_VERSION,
+    selectedCycleId: "",
+    selectedSocietyId: "",
+    societies: [],
+    cycles: [],
+    milkData: [],
+    schemes: [],
+    claims: [], 
+    recoverables: [],
     recoverableTransactions: [],
     billingResults: {},
     payments: [],
@@ -54,9 +30,170 @@ function createInitialState() {
   };
 }
 
+function isLegacyMockState(state = {}) {
+  const societyIds = (state.societies || []).map((society) => society?.id).filter(Boolean);
+  const cycleIds = (state.cycles || []).map((cycle) => cycle?.id).filter(Boolean);
+  const schemeIds = (state.schemes || []).map((scheme) => scheme?.id).filter(Boolean);
+
+  const hasLegacySocieties = societyIds.length === 3 && ["S001", "S023", "S040"].every((id) => societyIds.includes(id));
+  const hasLegacyCycles = ["1-10", "11-20", "21-END"].every((id) => cycleIds.includes(id));
+  const hasLegacySchemes = ["SCH_01", "SCH_02", "SCH_03", "SCH_04"].every((id) => schemeIds.includes(id));
+
+  return hasLegacySocieties && hasLegacyCycles && hasLegacySchemes;
+}
+
+function toDateOnly(value) {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  const raw = String(value).trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function compareCycleDates(a, b) {
+  const aTime = new Date(a.start || a.startDate || a.end || a.endDate || 0).getTime();
+  const bTime = new Date(b.start || b.startDate || b.end || b.endDate || 0).getTime();
+  return aTime - bTime;
+}
+
+function getBillingCycleWindow(referenceValue = new Date()) {
+  const referenceDate = referenceValue instanceof Date ? new Date(referenceValue) : new Date(referenceValue);
+  if (Number.isNaN(referenceDate.getTime())) {
+    throw new Error("Invalid billing cycle date.");
+  }
+
+  const year = referenceDate.getFullYear();
+  const month = referenceDate.getMonth();
+  const day = referenceDate.getDate();
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+
+  let startDay = 1;
+  let endDay = 10;
+  let cycleNumber = 1;
+
+  if (day > 10 && day <= 20) {
+    startDay = 11;
+    endDay = 20;
+    cycleNumber = 2;
+  } else if (day > 20) {
+    startDay = 21;
+    endDay = lastDayOfMonth;
+    cycleNumber = 3;
+  }
+
+  const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const startDate = new Date(year, month, startDay);
+  const endDate = new Date(year, month, endDay);
+  const startYear = startDate.getFullYear();
+  const endYear = endDate.getFullYear();
+  const startFormat = startYear === endYear ? { month: "short", day: "2-digit" } : { month: "short", day: "2-digit", year: "numeric" };
+
+  return {
+    code: `${monthKey}-C${cycleNumber}`,
+    startDate: toDateOnly(startDate),
+    endDate: toDateOnly(endDate),
+    displayLabel: `${startDate.toLocaleDateString("en-IN", startFormat)} - ${endDate.toLocaleDateString("en-IN", { month: "short", day: "2-digit", year: "numeric" })}`,
+  };
+}
+
+function buildCycleFromWindow(window, status = "OPEN") {
+  return {
+    id: window.code,
+    start: window.startDate,
+    end: window.endDate,
+    status,
+  };
+}
+
+function getCurrentCycle(cycles = [], window = getBillingCycleWindow(new Date())) {
+  const existing = cycles.find((cycle) => cycle.id === window.code || cycle.code === window.code);
+  if (existing) {
+    return {
+      ...buildCycleFromWindow(window, existing.status || "OPEN"),
+      ...normalizeCycle(existing),
+      id: window.code,
+      start: window.startDate,
+      end: window.endDate,
+      status: existing.status || "OPEN",
+    };
+  }
+
+  return buildCycleFromWindow(window, "OPEN");
+}
+
+function formatCycleLabel(cycle = {}) {
+  const start = toDateOnly(cycle.start || cycle.startDate || "");
+  const end = toDateOnly(cycle.end || cycle.endDate || "");
+  if (!start && !end) return cycle.id || cycle.code || "-";
+  if (!start) return new Date(end).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  if (!end) return new Date(start).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const startText = startDate.toLocaleDateString(
+    "en-IN",
+    startDate.getFullYear() === endDate.getFullYear()
+      ? { day: "2-digit", month: "short" }
+      : { day: "2-digit", month: "short", year: "numeric" }
+  );
+  const endText = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return `${startText} - ${endText}`;
+}
+
+function normalizeCycle(cycle = {}, index = 0) {
+  const id = String(cycle.id || cycle.code || `CYCLE-${index + 1}`);
+  const start = toDateOnly(cycle.start || cycle.startDate || cycle.fromDate || "");
+  const end = toDateOnly(cycle.end || cycle.endDate || cycle.toDate || "");
+
+  return {
+    ...cycle,
+    id,
+    start,
+    end,
+    type: cycle.type || "REGULAR",
+    label: cycle.label || (cycle.type === "EXTRA" ? "Extra Cycle" : id),
+    status: cycle.status || "OPEN",
+  };
+}
+
+function normalizeCycleList(cycles = []) {
+  return cycles.map((cycle, index) => normalizeCycle(cycle, index)).sort(compareCycleDates);
+}
+
+function normalizeScheme(scheme = {}, index = 0) {
+  return {
+    id: scheme.id || `SCH_${index + 1}`,
+    name: scheme.name || `Scheme ${index + 1}`,
+    type: scheme.type || "INCENTIVE",
+    calculationType: scheme.calculationType || "FIXED",
+    value: Number(scheme.value || 0),
+    isActive: scheme.isActive !== false,
+    appliesTo: Array.isArray(scheme.appliesTo) && scheme.appliesTo.length ? scheme.appliesTo : ["ALL"],
+    condition: scheme.condition || null,
+  };
+}
+
 function normalizeState(state) {
   const next = state || {};
   if (!next.cycles || !next.societies) return createInitialState();
+  if (isLegacyMockState(next)) {
+    return createInitialState();
+  }
+  const currentWindow = getBillingCycleWindow(new Date());
+  next.cycles = next.cycles.length ? normalizeCycleList(next.cycles) : [buildCycleFromWindow(currentWindow, "OPEN")];
+  next.schemes = Array.isArray(next.schemes) ? next.schemes.map(normalizeScheme) : [];
+  next.version = STATE_VERSION;
   if (!next.billingResults) next.billingResults = {};
   if (!next.payments) next.payments = [];
   if (!next.claims) next.claims = [];
@@ -64,8 +201,14 @@ function normalizeState(state) {
   if (!next.recoverableTransactions) next.recoverableTransactions = [];
   if (!next.auditLogs) next.auditLogs = [];
   if (!next.invoiceDispatch) next.invoiceDispatch = [];
-  if (!next.selectedCycleId) next.selectedCycleId = next.cycles[0]?.id || "1-10";
-  if (!next.selectedSocietyId) next.selectedSocietyId = next.societies[0]?.id || "S001";
+  const selectedCycleExists = next.cycles.some((cycle) => cycle.id === next.selectedCycleId);
+  next.selectedCycleId = selectedCycleExists
+    ? next.selectedCycleId
+    : next.cycles.find((cycle) => cycle.id === currentWindow.code)?.id || next.cycles.at(-1)?.id || currentWindow.code;
+  if (!next.selectedSocietyId) next.selectedSocietyId = next.societies[0]?.id || "";
+  if (!next.societies.some((society) => society.id === next.selectedSocietyId)) {
+    next.selectedSocietyId = next.societies[0]?.id || "";
+  }
   return next;
 }
 
@@ -83,6 +226,54 @@ export function loadAccountState() {
     const initial = createInitialState();
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
     return initial;
+  }
+}
+
+function normalizeSocietyList(list = []) {
+  return list
+    .map((society) => ({
+      id: society.id || society.societyId || society.code || "",
+      name: society.name || society.societyName || society.societyId || "",
+      district: society.district || "",
+      active: society.active !== false,
+    }))
+    .filter((society) => society.id && society.name);
+}
+
+export async function hydrateAccountSocieties() {
+  if (typeof window === "undefined") return loadAccountState();
+
+  const current = loadAccountState();
+
+  try {
+    const [societiesPayload, billingCyclesPayload] = await Promise.all([fetchSocieties(), fetchBillingCycles()]);
+    const societies = normalizeSocietyList(Array.isArray(societiesPayload?.data) ? societiesPayload.data : societiesPayload || []);
+    const billingCycles = normalizeCycleList(Array.isArray(billingCyclesPayload?.data) ? billingCyclesPayload.data : billingCyclesPayload || []);
+
+    if (!societies.length) return current;
+
+    const currentWindow = getBillingCycleWindow(new Date());
+    const currentCycle = buildCycleFromWindow(currentWindow, "OPEN");
+    const selectedCycleId =
+      (current.selectedCycleId && billingCycles.some((cycle) => cycle.id === current.selectedCycleId) && current.selectedCycleId) ||
+      billingCycles.find((cycle) => cycle.id === currentWindow.code)?.id ||
+      billingCycles.at(-1)?.id ||
+      currentCycle.id;
+
+    const merged = {
+      ...current,
+      societies,
+      cycles: billingCycles.length ? billingCycles : [currentCycle],
+      selectedCycleId,
+      selectedSocietyId: societies.some((society) => society.id === current.selectedSocietyId)
+        ? current.selectedSocietyId
+        : societies[0]?.id || current.selectedSocietyId,
+    };
+
+    saveAccountState(merged);
+    return merged;
+  } catch {
+    return current;
   }
 }
 
@@ -104,12 +295,36 @@ function getCycle(state, cycleId) {
   return state.cycles.find((item) => item.id === cycleId);
 }
 
+function getMilkRows(state, cycleId, societyId) {
+  return state.milkData.filter((item) => item.cycleId === cycleId && item.societyId === societyId);
+}
+
 function getMilkRow(state, cycleId, societyId) {
-  return state.milkData.find((item) => item.cycleId === cycleId && item.societyId === societyId);
+  const rows = getMilkRows(state, cycleId, societyId);
+  return summarizeMilkRows(rows);
+}
+
+function summarizeMilkRows(rows = []) {
+  return rows.reduce(
+    (summary, row) => {
+      const qty = Number(row?.qty || 0);
+      summary.qty += qty;
+      summary.milkAmount += Number(row?.milkAmount || 0);
+      summary.cowQty += Number(row?.cowQty || 0);
+      summary.buffaloQty += Number(row?.buffaloQty || 0);
+      summary.fatWeighted += Number(row?.avgFat || 0) * qty;
+      return summary;
+    },
+    { qty: 0, milkAmount: 0, cowQty: 0, buffaloQty: 0, fatWeighted: 0 }
+  );
 }
 
 function schemeAppliesToSociety(scheme, societyId) {
   return scheme.appliesTo?.includes("ALL") || scheme.appliesTo?.includes(societyId);
+}
+
+function adjustmentAppliesToSociety(adjustment, societyId) {
+  return adjustment.societyId === "ALL" || adjustment.societyId === societyId;
 }
 
 function conditionPasses(scheme, milkRow) {
@@ -132,41 +347,38 @@ function calculateSchemeAmount(scheme, milkRow) {
 }
 
 export function calculateSocietyBilling(state, cycleId, societyId) {
-  const milkRow = getMilkRow(state, cycleId, societyId) || {
-    qty: 0,
-    milkAmount: 0,
-    cowQty: 0,
-    buffaloQty: 0,
-    avgFat: 0,
-    transportPenalty: 0,
-  };
+  const milkRows = getMilkRows(state, cycleId, societyId);
+  const milkSummary = summarizeMilkRows(milkRows);
 
   const appliedClaims = state.claims.filter(
-    (item) => item.cycleId === cycleId && item.societyId === societyId && item.status === "APPLIED"
+    (item) => item.cycleId === cycleId && adjustmentAppliesToSociety(item, societyId) && item.status === "APPLIED"
   );
   const totalClaims = appliedClaims.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const activeSchemes = state.schemes.filter(
-    (scheme) => scheme.isActive && schemeAppliesToSociety(scheme, societyId) && conditionPasses(scheme, milkRow)
+    (scheme) => scheme.isActive && schemeAppliesToSociety(scheme, societyId) && conditionPasses(scheme, milkSummary)
   );
 
   let totalSchemeBenefits = 0;
   let totalSchemeDeductions = 0;
 
   const schemeLineItems = activeSchemes.map((scheme) => {
-    const amount = calculateSchemeAmount(scheme, milkRow);
+    const amount = calculateSchemeAmount(scheme, milkSummary);
     if (scheme.type === "DEDUCTION") totalSchemeDeductions += amount;
     else totalSchemeBenefits += amount;
     return {
       type: "SCHEME",
       referenceId: scheme.id,
       description: scheme.name,
+      schemeType: scheme.type,
       amount: scheme.type === "DEDUCTION" ? -amount : amount,
     };
   });
 
+  const schemeDeductions = schemeLineItems.filter((item) => item.amount < 0);
+
   const activeRecoverables = state.recoverables.filter(
-    (item) => item.societyId === societyId && item.status === "ACTIVE" && Number(item.remainingAmount || 0) > 0
+    (item) => adjustmentAppliesToSociety(item, societyId) && item.status === "ACTIVE" && Number(item.remainingAmount || 0) > 0
   );
   const recoverableBreakdown = activeRecoverables.map((item) => ({
     id: item.id,
@@ -174,31 +386,29 @@ export function calculateSocietyBilling(state, cycleId, societyId) {
     reason: item.reason,
   }));
   const totalRecoverables = recoverableBreakdown.reduce((sum, item) => sum + item.amount, 0);
-  const transportPenalty = Number(milkRow.transportPenalty || 0);
 
   const netPayable =
-    Number(milkRow.milkAmount || 0) +
+    Number(milkSummary.milkAmount || 0) +
     totalClaims +
     totalSchemeBenefits -
     totalRecoverables -
-    totalSchemeDeductions -
-    transportPenalty;
+    totalSchemeDeductions;
 
   return {
     societyId,
     cycleId,
-    totalMilkQty: Number(milkRow.qty || 0),
-    milkAmount: Number(milkRow.milkAmount || 0),
+    totalMilkQty: Number(milkSummary.qty || 0),
+    milkAmount: Number(milkSummary.milkAmount || 0),
     totalClaims,
     totalRecoverables,
     totalSchemeDeductions,
     totalSchemeBenefits,
-    transportPenalty,
     netPayable: Math.max(0, Math.round(netPayable)),
     breakdown: {
       claims: appliedClaims,
       recoverables: recoverableBreakdown,
       schemes: schemeLineItems,
+      schemeDeductions,
     },
   };
 }
@@ -293,42 +503,36 @@ export function disburseCycle(cycleId) {
 
 export function addBillingCycle() {
   const state = loadAccountState();
-  const nextNumber = state.cycles.length + 1;
-  const id = `${nextNumber * 10 - 9}-${nextNumber * 10}`;
+  const window = getBillingCycleWindow(new Date());
+  const existing = state.cycles.find((cycle) => cycle.id === window.code);
+
+  if (existing) {
+    state.selectedCycleId = existing.id;
+    saveAccountState(state);
+    return { ok: true, message: `Cycle ${existing.id} already exists.`, state };
+  }
+
   state.cycles.push({
-    id,
-    start: "2025-12-01",
-    end: "2025-12-10",
-    status: "OPEN",
+    ...buildCycleFromWindow(window, "OPEN"),
   });
-  state.selectedCycleId = id;
+  state.cycles.sort(compareCycleDates);
+  state.selectedCycleId = window.code;
 
   for (const society of state.societies) {
     state.milkData.push({
-      cycleId: id,
+      cycleId: window.code,
       societyId: society.id,
       qty: 0,
       cowQty: 0,
       buffaloQty: 0,
       milkAmount: 0,
       avgFat: 0,
-      transportPenalty: 0,
     });
   }
 
-  pushAudit(state, "CREATE_CYCLE", { cycleId: id });
+  pushAudit(state, "CREATE_CYCLE", { cycleId: window.code, window: window.displayLabel });
   saveAccountState(state);
-  return { ok: true, message: `Cycle ${id} created.`, state };
-}
-
-export function toggleScheme(schemeId) {
-  const state = loadAccountState();
-  const scheme = state.schemes.find((item) => item.id === schemeId);
-  if (!scheme) return { ok: false, message: "Scheme not found." };
-  scheme.isActive = !scheme.isActive;
-  pushAudit(state, "TOGGLE_SCHEME", { schemeId, isActive: scheme.isActive });
-  saveAccountState(state);
-  return { ok: true, message: `Scheme "${scheme.name}" ${scheme.isActive ? "enabled" : "disabled"}.`, state };
+  return { ok: true, message: `Cycle ${window.code} created for ${window.displayLabel}.`, state };
 }
 
 export function addScheme(payload) {
@@ -349,6 +553,27 @@ export function addScheme(payload) {
   return { ok: true, message: `Scheme "${scheme.name}" added.`, state };
 }
 
+export function deleteScheme(schemeId) {
+  const state = loadAccountState();
+  const scheme = state.schemes.find((item) => item.id === schemeId);
+  if (!scheme) return { ok: false, message: "Scheme not found." };
+  state.schemes = state.schemes.filter((item) => item.id !== schemeId);
+  pushAudit(state, "DELETE_SCHEME", { schemeId, name: scheme.name });
+  saveAccountState(state);
+  return { ok: true, message: `Scheme "${scheme.name}" deleted.`, state };
+}
+
+export function toggleScheme(schemeId) {
+  const state = loadAccountState();
+  const scheme = state.schemes.find((item) => item.id === schemeId);
+  if (!scheme) return { ok: false, message: "Scheme not found." };
+  scheme.isActive = !scheme.isActive;
+  const status = scheme.isActive ? "enabled" : "disabled";
+  pushAudit(state, "TOGGLE_SCHEME", { schemeId, name: scheme.name, isActive: scheme.isActive });
+  saveAccountState(state);
+  return { ok: true, message: `Scheme "${scheme.name}" ${status}.`, state };
+}
+
 export function addAdjustment(payload) {
   const state = loadAccountState();
   const amount = Number(payload.amount || 0);
@@ -358,18 +583,18 @@ export function addAdjustment(payload) {
     state.claims.unshift({
       id: makeId("CLM"),
       cycleId: payload.cycleId,
-      societyId: payload.societyId,
+      societyId: payload.societyId || "ALL",
       reason: payload.reason || "Manual claim",
       amount,
       status: "APPLIED",
       createdAt: new Date().toISOString(),
     });
-    pushAudit(state, "ADD_CLAIM", { societyId: payload.societyId, cycleId: payload.cycleId, amount });
+    pushAudit(state, "ADD_CLAIM", { societyId: payload.societyId || "ALL", cycleId: payload.cycleId, amount });
   } else {
     const installment = Number(payload.installmentAmount || amount);
     state.recoverables.unshift({
       id: makeId("REC"),
-      societyId: payload.societyId,
+      societyId: payload.societyId || "ALL",
       reason: payload.reason || "Manual recoverable",
       totalAmount: amount,
       remainingAmount: amount,
@@ -377,11 +602,49 @@ export function addAdjustment(payload) {
       status: "ACTIVE",
       createdAt: new Date().toISOString(),
     });
-    pushAudit(state, "ADD_RECOVERABLE", { societyId: payload.societyId, amount, installment });
+    pushAudit(state, "ADD_RECOVERABLE", { societyId: payload.societyId || "ALL", amount, installment });
   }
 
   saveAccountState(state);
   return { ok: true, message: `${payload.kind === "CLAIM" ? "Claim" : "Recoverable"} added successfully.`, state };
+}
+
+export function deleteAdjustment(kind, adjustmentId) {
+  const state = loadAccountState();
+  if (kind === "CLAIM") {
+    const claim = state.claims.find((item) => item.id === adjustmentId);
+    if (!claim) return { ok: false, message: "Claim not found." };
+    state.claims = state.claims.filter((item) => item.id !== adjustmentId);
+    pushAudit(state, "DELETE_CLAIM", { claimId: adjustmentId, societyId: claim.societyId });
+    saveAccountState(state);
+    return { ok: true, message: "Claim deleted.", state };
+  }
+
+  const recoverable = state.recoverables.find((item) => item.id === adjustmentId);
+  if (!recoverable) return { ok: false, message: "Recoverable not found." };
+  state.recoverables = state.recoverables.filter((item) => item.id !== adjustmentId);
+  pushAudit(state, "DELETE_RECOVERABLE", { recoverableId: adjustmentId, societyId: recoverable.societyId });
+  saveAccountState(state);
+  return { ok: true, message: "Recoverable deleted.", state };
+}
+
+export function toggleAdjustmentStatus(kind, adjustmentId) {
+  const state = loadAccountState();
+  if (kind === "CLAIM") {
+    const claim = state.claims.find((item) => item.id === adjustmentId);
+    if (!claim) return { ok: false, message: "Claim not found." };
+    claim.status = claim.status === "APPLIED" ? "PENDING" : "APPLIED";
+    pushAudit(state, "TOGGLE_CLAIM", { claimId: adjustmentId, status: claim.status });
+    saveAccountState(state);
+    return { ok: true, message: `Claim ${claim.status === "APPLIED" ? "enabled" : "disabled"}.`, state };
+  }
+
+  const recoverable = state.recoverables.find((item) => item.id === adjustmentId);
+  if (!recoverable) return { ok: false, message: "Recoverable not found." };
+  recoverable.status = recoverable.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+  pushAudit(state, "TOGGLE_RECOVERABLE", { recoverableId: adjustmentId, status: recoverable.status });
+  saveAccountState(state);
+  return { ok: true, message: `Recoverable ${recoverable.status === "ACTIVE" ? "enabled" : "disabled"}.`, state };
 }
 
 export function setSelections({ cycleId, societyId }) {
@@ -419,6 +682,77 @@ export function getOrCalculateCycleRows(state, cycleId) {
   return state.billingResults[cycleId];
 }
 
+function compareYearMonth(a, b) {
+  const ay = Number(a?.year || 0);
+  const am = Number(a?.month || 0);
+  const by = Number(b?.year || 0);
+  const bm = Number(b?.month || 0);
+  if (ay !== by) return ay - by;
+  return am - bm;
+}
+
+function resolveReferenceYearMonth(state, cycleId) {
+  const selectedCycle = state.cycles.find((cycle) => cycle.id === cycleId) || null;
+  const fromDate = new Date(selectedCycle?.start || selectedCycle?.startDate || "");
+  if (!Number.isNaN(fromDate.getTime())) {
+    return {
+      year: fromDate.getFullYear(),
+      month: fromDate.getMonth() + 1,
+    };
+  }
+
+  const cycleCode = String(selectedCycle?.code || selectedCycle?.id || cycleId || "").trim();
+  const match = cycleCode.match(/^(\d{4})-(\d{2})-C[123]$/);
+  if (match) {
+    return {
+      year: Number(match[1]),
+      month: Number(match[2]),
+    };
+  }
+
+  const now = new Date();
+  return {
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+  };
+}
+
+export function getBillingCycleDateStatus(cycle, referenceDate = new Date()) {
+  const startDate = new Date(cycle?.start || cycle?.startDate || cycle?.fromDate || "");
+  const endDate = new Date(cycle?.end || cycle?.endDate || cycle?.toDate || "");
+  const currentDate = referenceDate instanceof Date ? new Date(referenceDate) : new Date(referenceDate);
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || Number.isNaN(currentDate.getTime())) {
+    return cycle?.status || "OPEN";
+  }
+
+  if (currentDate < startDate) return "Pending";
+  if (currentDate > endDate) return "Completed";
+  return "In Progress";
+}
+
+function buildCycleProgressBands(referenceDate = new Date()) {
+  const now = referenceDate instanceof Date ? new Date(referenceDate) : new Date(referenceDate);
+  if (Number.isNaN(now.getTime())) {
+    return [];
+  }
+
+  const currentDay = now.getDate();
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+  const bands = [
+    { cycle: "Cycle 1", range: "1-10", startDay: 1, endDay: 10 },
+    { cycle: "Cycle 2", range: "11-20", startDay: 11, endDay: 20 },
+    { cycle: "Cycle 3", range: "21-End", startDay: 21, endDay: lastDayOfMonth },
+  ];
+
+  return bands.map((band) => ({
+    cycle: band.cycle,
+    range: band.range,
+    step: currentDay < band.startDay ? "Pending" : currentDay > band.endDay ? "Completed" : "In Progress",
+  }));
+}
+
 export function buildDashboardMetrics(state, cycleId) {
   const rows = getOrCalculateCycleRows(state, cycleId);
   const totalMilk = rows.reduce((sum, row) => sum + Number(row.totalMilkQty || 0), 0);
@@ -439,10 +773,6 @@ export function buildDashboardMetrics(state, cycleId) {
   }, 0);
   const totalType = totalCow + totalBuffalo || 1;
 
-  const paidCycles = state.cycles.filter((cycle) => cycle.status === "PAID").length;
-  const lockedCycles = state.cycles.filter((cycle) => cycle.status === "LOCKED").length;
-  const openCycles = state.cycles.filter((cycle) => cycle.status === "OPEN").length;
-
   return {
     cards: [
       { label: "Total Milk Procured", value: `${totalMilk.toLocaleString("en-IN")} L`, sub: `(Cycle ${cycleId})` },
@@ -454,19 +784,37 @@ export function buildDashboardMetrics(state, cycleId) {
       { name: "Cow Milk", value: Math.round((totalCow / totalType) * 100) },
       { name: "Buffalo Milk", value: Math.round((totalBuffalo / totalType) * 100) },
     ],
-    cycleProgress: [
-      { step: "Paid", state: String(paidCycles) },
-      { step: "Locked", state: String(lockedCycles) },
-      { step: "Open", state: String(openCycles) },
-    ],
+    cycleProgress: buildCycleProgressBands(),
   };
 }
 
-export function buildTrendData(state) {
-  return state.cycles.slice(0, 6).map((cycle, idx) => {
+export function buildTrendData(state, fromMonthId = null) {
+  const sortedCycles = [...state.cycles].sort(compareCycleDates);
+  let dataSource = sortedCycles;
+  
+  // If a starting month is specified, find it and return from that point onwards
+  if (fromMonthId) {
+    // Try to find by cycle ID first
+    const startIndex = sortedCycles.findIndex((cycle) => cycle.id === fromMonthId);
+    if (startIndex !== -1) {
+      dataSource = sortedCycles.slice(startIndex);
+    } else {
+      // Try to find by date string (YYYY-MM-DD)
+      const dateObj = new Date(fromMonthId);
+      if (!isNaN(dateObj.getTime())) {
+        dataSource = sortedCycles.filter((cycle) => {
+          const cycleDate = new Date(cycle.start || cycle.startDate || 0);
+          return cycleDate >= dateObj;
+        });
+      }
+    }
+  }
+  
+  // Return trend data from selected month onwards
+  return dataSource.map((cycle) => {
     const rows = getOrCalculateCycleRows(state, cycle.id);
     return {
-      month: `C${idx + 1}`,
+      month: formatCycleLabel(cycle),
       milkQty: rows.reduce((sum, row) => sum + Number(row.totalMilkQty || 0), 0),
       payout: rows.reduce((sum, row) => sum + Number(row.netPayable || 0), 0),
     };

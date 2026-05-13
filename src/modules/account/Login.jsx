@@ -6,8 +6,8 @@ export default function AccountLogin() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
-    username: "Account01",
-    password: "123",
+    username: "",
+    password: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
