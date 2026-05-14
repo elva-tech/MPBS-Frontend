@@ -22,6 +22,17 @@ export async function listRequests(req, res) {
   return res.json({ data: list, meta: makePaginationMeta(total, page, limit) });
 }
 
+export async function listMyRequests(req, res) {
+  const { status, type } = req.query;
+  const q = { userId: req.user.id };
+
+  if (status) q.status = status;
+  if (type) q.type = type;
+
+  const list = await Request.find(q).sort({ createdAt: -1 });
+  res.json({ data: list });
+}
+
 export async function createRequest(req, res) {
   const payload = { ...req.body };
   if (payload.type === "forgot_password" && payload.newPassword) {

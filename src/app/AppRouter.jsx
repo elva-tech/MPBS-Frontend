@@ -48,6 +48,15 @@ import ClaimsRecoverables from "../modules/account/ClaimsRecoverables";
 import Invoices from "../modules/account/Invoices";
 import AccountReports from "../modules/account/Reports";
 
+// ================= AUDIT =================
+import AuditLogin from "../modules/audit/Login";
+import AuditDashboard from "../modules/audit/Dashboard";
+import AuditReports from "../modules/audit/Reports";
+import AuditReviews from "../modules/audit/Reviews";
+import AuditLogs from "../modules/audit/Logs";
+import AuditLayout from "./layout/AuditLayout";
+import AuditAuthGaurd from "../shared/components/AuditAuthGaurd";
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -133,6 +142,24 @@ export default function AppRouter() {
           <Route path="complaints" element={<BmcComplaints />} />
         </Route>
 
+<<<<<<< HEAD
+        {/* ================= AUDIT ROUTES ================= */}
+        <Route path="/audit/login" element={<AuditLogin />} />
+
+        <Route
+          path="/audit"
+          element={
+            <AuditAuthGaurd>
+              <AuditLayout />
+            </AuditAuthGaurd>
+          }
+        >
+          <Route index element={<Navigate to="/audit/dashboard" replace />} />
+          <Route path="dashboard" element={<AuditDashboard />} />
+          <Route path="reports" element={<AuditReports />} />
+          <Route path="reviews" element={<AuditReviews />} />
+          <Route path="logs" element={<AuditLogs />} />
+=======
         {/* ================= ACCOUNT ROUTES ================= */}
         <Route path="/account/login" element={<AccountLogin />} />
         <Route path="/login/account" element={<AccountLogin />} />
@@ -153,6 +180,7 @@ export default function AppRouter() {
           <Route path="claims-recoverables" element={<ClaimsRecoverables />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="reports" element={<AccountReports />} />
+>>>>>>> 59c00f5a9f370b54176bb943f7345ef64c5d77f9
         </Route>
 
         {/* ================= FALLBACK ================= */}
