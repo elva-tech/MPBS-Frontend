@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { addBillingCycle, disburseCycle, loadAccountState, lockCycle, runBillingForCycle, setSelections } from "./engine";
+import { addBillingCycle, disburseCycle, getBillingCycleDateStatus, loadAccountState, lockCycle, runBillingForCycle, setSelections } from "./engine";
 
 function statusBadge(status) {
   if (status === "PAID") return "bg-[#E6F5EE] text-[#1D7F50]";
@@ -15,6 +15,13 @@ function actionLabel(status) {
   return "View";
 }
 
+function formatDateLabel(value) {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export default function BillingCycles() {
   const [state, setState] = useState(() => loadAccountState());
   const [message, setMessage] = useState("");
@@ -23,9 +30,9 @@ export default function BillingCycles() {
     () =>
       state.cycles.map((cycle) => ({
         cycle: cycle.id,
-        start: cycle.start,
-        end: cycle.end,
-        status: cycle.status,
+        start: formatDateLabel(cycle.start || cycle.startDate),
+        end: formatDateLabel(cycle.end || cycle.endDate),
+        status: getBillingCycleDateStatus(cycle),
         societies: state.societies.length,
         action: actionLabel(cycle.status),
       })),

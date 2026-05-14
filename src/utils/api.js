@@ -96,6 +96,17 @@ export function fetchSocieties() {
   return request("/societies");
 }
 
+export function fetchBillingCycles() {
+  return request("/billing-cycles");
+}
+
+export function getAccountsDashboard(params = {}) {
+  const search = new URLSearchParams();
+  if (params.cycleId) search.set("cycleId", params.cycleId);
+  const qs = search.toString();
+  return request(`/accounts/dashboard${qs ? `?${qs}` : ""}`);
+}
+
 export function getMilkEntries(params = {}) {
   const search = new URLSearchParams();
   if (params.societyId) search.set("societyId", params.societyId);

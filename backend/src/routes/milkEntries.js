@@ -6,12 +6,13 @@ import { z } from "zod";
 
 const router = express.Router();
 
-router.use(authRequired, requireRole(["Admin","Society","BMC"]))
+router.use(authRequired);
 
-router.get("/", getMilkEntries);
+router.get("/", requireRole(["Admin", "Society", "BMC", "Account", "Accounts", "Auditor"]), getMilkEntries);
 
 router.post(
   "/",
+  requireRole(["Admin", "Society", "BMC"]),
   validate(
     z.object({
       societyId: z.string().min(1),

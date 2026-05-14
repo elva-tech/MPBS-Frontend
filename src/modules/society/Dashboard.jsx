@@ -20,6 +20,7 @@ const TOP_CARD_STYLES = [
   { bg: "#EEF4FF", border: "#CFE0FF", iconBg: "#EAF1FF", iconBorder: "#CFE0FF" },
   { bg: "#F8F3E8", border: "#EFD5B4", iconBg: "#F5EBDD", iconBorder: "#EFD5B4" },
   { bg: "#EEF2F7", border: "#D4E0EF", iconBg: "#EAF1FF", iconBorder: "#D4E0EF" },
+  { bg: "#EEF8F2", border: "#CFE9D9", iconBg: "#E7F6EC", iconBorder: "#CFE9D9" },
 ];
 
 export default function Dashboard() {
@@ -54,6 +55,7 @@ export default function Dashboard() {
             totalFarmers: 0,
             session: { morning: 0, evening: 0 },
             type: { cow: 0, buffalo: 0 },
+            totalPayable: 0,
           }
         );
         setMilkBreakdown(data.milkBreakdown || []);
@@ -242,7 +244,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-[#EFF5FF] min-h-screen p-6 text-[#0F1E33] select-none cursor-default font-bold">
+    <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-4 text-[#0F1E33] select-none cursor-default font-bold">
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
@@ -274,59 +276,59 @@ export default function Dashboard() {
       </div>
 
       {/* TOP STATS */}
-      <div className="flex flex-nowrap items-center gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-[repeat(4,220px)_284px] items-center gap-4 overflow-x-auto pb-1 scrollbar-none">
         {/* Total Milk */}
         <div
-          className="rounded-lg p-3 w-60 h-24 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3 border"
+          className="h-[94px] rounded-md border p-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
           style={{ background: TOP_CARD_STYLES[0].bg, borderColor: TOP_CARD_STYLES[0].border }}
         >
           <div
-            className="w-11 h-11 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            className="h-[70px] w-8 shrink-0 rounded-md flex items-center justify-center text-[#1E4B6B] border"
             style={{ background: TOP_CARD_STYLES[0].iconBg, borderColor: TOP_CARD_STYLES[0].iconBorder }}
-          ><svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.7 6.3 8.4a8 8 0 1 0 11.4 0L12 2.7z" /></svg></div>
+          ><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.7 6.3 8.4a8 8 0 1 0 11.4 0L12 2.7z" /></svg></div>
           <div>
-            <div className="text-[13px] text-[#5B6B7F] font-medium">Today's Total Milk</div>
-            <p className="text-[24px] font-semibold text-[#1E4B6B] leading-none mt-1">{summary.totalMilk} L</p>
+            <div className="text-[16px] text-[#252236] font-medium leading-tight whitespace-nowrap">Today&rsquo;s Total Milk</div>
+            <p className="text-[29px] font-medium text-[#252236] leading-none mt-2">{summary.totalMilk} L</p>
           </div>
         </div>
 
         {/* Total Farmers */}
         <div
-          className="rounded-lg p-3 w-60 h-24 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3 border"
+          className="h-[94px] rounded-md border p-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
           style={{ background: TOP_CARD_STYLES[1].bg, borderColor: TOP_CARD_STYLES[1].border }}
         >
           <div
-            className="w-11 h-11 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            className="h-[70px] w-8 shrink-0 rounded-md flex items-center justify-center text-[#1E4B6B] border"
             style={{ background: TOP_CARD_STYLES[1].iconBg, borderColor: TOP_CARD_STYLES[1].iconBorder }}
-          ><svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="7" r="4" /><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></div>
+          ><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="7" r="4" /><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></div>
           <div>
-            <div className="text-[13px] text-[#5B6B7F] font-medium">Total Farmers</div>
-            <p className="text-[24px] font-semibold text-[#1E4B6B] leading-none mt-1">{summary.totalFarmers}</p>
+            <div className="text-[16px] text-[#252236] font-medium leading-tight whitespace-nowrap">Total Farmers</div>
+            <p className="text-[29px] font-medium text-[#252236] leading-none mt-2">{summary.totalFarmers}</p>
           </div>
         </div>
 
         {/* Morning / Evening */}
         <div
-          className="rounded-lg p-3 w-64 h-24 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3 border"
+          className="h-[94px] rounded-md border p-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
           style={{ background: TOP_CARD_STYLES[2].bg, borderColor: TOP_CARD_STYLES[2].border }}
         >
           <div
-            className="w-11 h-11 rounded-md flex items-center justify-center border"
+            className="h-[70px] w-8 shrink-0 rounded-md flex items-center justify-center border"
             style={{ background: TOP_CARD_STYLES[2].iconBg, borderColor: TOP_CARD_STYLES[2].iconBorder }}
           >
-            <div className="w-8 h-8 rounded-full bg-[#1E4B6B] flex items-center justify-center">
-              <svg className="w-4.5 h-4.5 text-[#EAF1FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <div className="w-6 h-6 rounded-full bg-[#1E4B6B] flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-[#EAF1FF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <circle cx="12" cy="12" r="7.5" />
                 <path d="M12 7v5l3 2" />
               </svg>
             </div>
           </div>
-          <div className="flex-1">
-            <div className="text-[13px] text-[#5B6B7F] font-medium mb-1">Types Of Milk</div>
-            <div className="flex gap-6">
+          <div className="flex-1 min-w-0">
+            <div className="text-[16px] text-[#3B3124] font-medium leading-tight mb-2 whitespace-nowrap">Types Of Milk</div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <span className="text-[12px] text-[#6B7FA0] flex items-center gap-1">
-                  <svg className="w-4 h-4 text-[#6B7FA0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <span className="text-[13px] text-[#8B806F] flex items-center gap-1 whitespace-nowrap">
+                  <svg className="w-3.5 h-3.5 text-[#6B7FA0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M4 15h16" />
                     <path d="M7 13l2-2 2 2" />
                     <path d="M12 6a6 6 0 0 0-6 6" />
@@ -337,11 +339,11 @@ export default function Dashboard() {
                   </svg>
                   Morning
                 </span>
-                <p className="font-semibold text-[16px] text-[#1E4B6B] leading-none mt-1">{summary.session.morning} L</p>
+                <p className="font-semibold text-[16px] text-[#3B3124] leading-none mt-1.5 text-right">{summary.session.morning} L</p>
               </div>
               <div>
-                <span className="text-[12px] text-[#6B7FA0] flex items-center gap-1">
-                  <svg className="w-4 h-4 text-[#6B7FA0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <span className="text-[13px] text-[#8B806F] flex items-center gap-1 whitespace-nowrap">
+                  <svg className="w-3.5 h-3.5 text-[#6B7FA0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M4 15h16" />
                     <path d="M13 13l2 2 2-2" />
                     <path d="M12 6a6 6 0 0 0-6 6" />
@@ -352,7 +354,7 @@ export default function Dashboard() {
                   </svg>
                   Evening
                 </span>
-                <p className="font-semibold text-[16px] text-[#1E4B6B] leading-none mt-1">{summary.session.evening} L</p>
+                <p className="font-semibold text-[16px] text-[#3B3124] leading-none mt-1.5 text-right">{summary.session.evening} L</p>
               </div>
             </div>
           </div>
@@ -360,14 +362,14 @@ export default function Dashboard() {
 
         {/* Buffalo / Cow */}
         <div
-          className="rounded-lg p-3 w-64 h-24 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3 border"
+          className="h-[94px] rounded-md border p-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
           style={{ background: TOP_CARD_STYLES[3].bg, borderColor: TOP_CARD_STYLES[3].border }}
         >
           <div
-            className="w-11 h-11 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            className="h-[70px] w-8 shrink-0 rounded-md flex items-center justify-center text-[#1E4B6B] border"
             style={{ background: TOP_CARD_STYLES[3].iconBg, borderColor: TOP_CARD_STYLES[3].iconBorder }}
           >
-            <svg className="w-6 h-6" viewBox="0 0 64 64" aria-hidden="true">
+            <svg className="w-5 h-5" viewBox="0 0 64 64" aria-hidden="true">
               <path
                 fill="currentColor"
                 d="M24 6h16v6l-2 2v8l6 8a15 15 0 0 1 3 9v16c0 5-4 9-9 9H26c-5 0-9-4-9-9V39c0-3 1-6 3-9l6-8v-8l-2-2V6z"
@@ -378,13 +380,13 @@ export default function Dashboard() {
               />
             </svg>
           </div>
-          <div className="flex-1">
-            <div className="text-[13px] text-[#5B6B7F] font-medium mb-1">Types Of Milk</div>
-            <div className="flex gap-6">
+          <div className="flex-1 min-w-0">
+            <div className="text-[16px] text-[#12213A] font-medium leading-tight mb-2 whitespace-nowrap">Types Of Milk</div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <span className="text-[12px] text-[#5E6B84] flex items-center gap-1.5">
+                <span className="text-[13px] text-[#657491] flex items-center gap-1.5 whitespace-nowrap">
                   <svg
-                    className="w-4 h-4 text-[#1E4B6B]"
+                    className="w-3.5 h-3.5 text-[#1E4B6B]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -400,12 +402,12 @@ export default function Dashboard() {
                   </svg>
                   Buffalo
                 </span>
-                <p className="font-semibold text-[18px] text-[#1E4B6B] leading-none mt-1">{summary.type.buffalo} L</p>
+                <p className="font-semibold text-[16px] text-[#12213A] leading-none mt-1.5 text-right">{summary.type.buffalo} L</p>
               </div>
               <div>
-                <span className="text-[12px] text-[#5E6B84] flex items-center gap-1.5">
+                <span className="text-[13px] text-[#657491] flex items-center gap-1.5 whitespace-nowrap">
                   <svg
-                    className="w-4 h-4 text-[#1E4B6B]"
+                    className="w-3.5 h-3.5 text-[#1E4B6B]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -427,7 +429,7 @@ export default function Dashboard() {
                   </svg>
                   Cow
                 </span>
-                <p className="font-semibold text-[18px] text-[#1E4B6B] leading-none mt-1">{summary.type.cow} L</p>
+                <p className="font-semibold text-[16px] text-[#12213A] leading-none mt-1.5 text-right">{summary.type.cow} L</p>
               </div>
             </div>
           </div>
@@ -437,7 +439,7 @@ export default function Dashboard() {
           onClick={handleDownloadDispatchSheet}
           className="ml-auto bg-[#C7CCD4] hover:bg-[#C7CCD4] text-[#1E4B6B] px-6 py-2.5 rounded-md font-semibold shadow-[0_8px_18px_rgba(15,41,74,0.25)] flex items-center gap-2 whitespace-nowrap"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 3v12" />
             <path d="M7 10l5 5 5-5" />
             <path d="M5 21h14" />

@@ -1,5 +1,6 @@
 import { MilkEntry } from "../models/MilkEntry.js";
 import { Society } from "../models/Society.js";
+import { SocietyBilling } from "../models/accounts.js";
 import { Verification } from "../models/Verification.js";
 import { isGoodQualityByThreshold } from "../utils/quality.js";
 
@@ -169,9 +170,13 @@ export async function getSocietyDashboard(req, res) {
     { name: "Mineral Mix", qty: "0 Kg", lastReceived: "-" },
   ];
 
+  const latestBilling = societyId ? await SocietyBilling.findOne({ societyId }).sort({ createdAt: -1 }) : null;
+  const totalPayable = Number(latestBilling?.netPayable || 0);
+
   res.json({
     data: {
       summary,
+      totalPayable,
       milkBreakdown,
       revenue: Array.from(revenueMap.values()),
       feedMineral,
