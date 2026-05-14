@@ -142,7 +142,6 @@ export default function AppRouter() {
           <Route path="complaints" element={<BmcComplaints />} />
         </Route>
 
-<<<<<<< HEAD
         {/* ================= AUDIT ROUTES ================= */}
         <Route path="/audit/login" element={<AuditLogin />} />
 
@@ -159,7 +158,8 @@ export default function AppRouter() {
           <Route path="reports" element={<AuditReports />} />
           <Route path="reviews" element={<AuditReviews />} />
           <Route path="logs" element={<AuditLogs />} />
-=======
+        </Route>
+
         {/* ================= ACCOUNT ROUTES ================= */}
         <Route path="/account/login" element={<AccountLogin />} />
         <Route path="/login/account" element={<AccountLogin />} />
@@ -180,7 +180,6 @@ export default function AppRouter() {
           <Route path="claims-recoverables" element={<ClaimsRecoverables />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="reports" element={<AccountReports />} />
->>>>>>> 59c00f5a9f370b54176bb943f7345ef64c5d77f9
         </Route>
 
         {/* ================= FALLBACK ================= */}

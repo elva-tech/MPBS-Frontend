@@ -35,13 +35,10 @@ async function run() {
   const bmcPass = await bcrypt.hash("bmc123", 10);
   await User.create({ username: "BMC_001", passwordHash: bmcPass, role: "BMC", authStatus: "Approved" });
 
-<<<<<<< HEAD
   const auditPass = await bcrypt.hash("audit123", 10);
   await User.create({ username: "audit", passwordHash: auditPass, role: "Audit", authStatus: "Approved" });
-=======
   const accountPass = await bcrypt.hash("123", 10);
   await User.create({ username: "Account01", passwordHash: accountPass, role: "Account", authStatus: "Approved" });
->>>>>>> 59c00f5a9f370b54176bb943f7345ef64c5d77f9
 
   await Society.create({
     societyId: "SOCIETY_001",
