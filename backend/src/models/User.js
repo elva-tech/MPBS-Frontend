@@ -8,7 +8,7 @@ const UserSchema = new mongoose.Schema(
       type: String,
 
 
-      enum: ["Admin", "Society", "BMC", "EO", "Dairy", "Account", "Accounts", "Audit", "Auditor", "Other"],
+      enum: ["Admin", "Society", "BMC", "EO", "Dairy", "Account", "Accounts", "Audit", "Auditor", "ProcurementInputs", "Other"],
 
       required: true,
     },
@@ -21,5 +21,10 @@ const UserSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Indexes for performance
+UserSchema.index({ role: 1, authStatus: 1 });
+UserSchema.index({ createdAt: -1 });
+UserSchema.index({ username: 1 });
 
 export const User = mongoose.model("User", UserSchema);

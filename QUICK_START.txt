@@ -40,6 +40,11 @@ BMC User:
   Password: bmc123
   URL: http://localhost:5173/bmc/login
 
+Procurement & Inputs User:
+  Username: P&I
+  Password: 123
+  URL: http://localhost:5173/procurement/login
+
 Audit User:
   Username: audit
   Password: audit123

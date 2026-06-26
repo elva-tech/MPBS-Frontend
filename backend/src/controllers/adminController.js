@@ -2,6 +2,7 @@
 import { User } from "../models/User.js";
 import { getPagination, makePaginationMeta } from "../utils/pagination.js";
 import { Notification } from "../models/Notification.js";
+import { createAuditLog } from "../services/auditService.js";
 
 export async function getDashboardStats(req, res) {
   const [totalUsers, usersByRole, approvedUsers, rejectedUsers, pendingUsers, totalNotifications] = await Promise.all([
@@ -78,6 +79,27 @@ export async function createUser(req, res) {
     profile,
   });
 
+  // Log audit event
+  await createAuditLog({
+    action: "user_created",
+    actor: {
+      userId: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role,
+    },
+    resourceType: "User",
+    resourceId: user._id.toString(),
+    changes: {
+      after: {
+        username,
+        role: normalizedRole,
+        authStatus,
+      },
+    },
+    ipAddress: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
+
   const createdUser = user.toObject();
   delete createdUser.passwordHash;
 
@@ -87,7 +109,27 @@ export async function createUser(req, res) {
 export async function updateUserAuth(req, res) {
   const { id } = req.params;
   const { authStatus } = req.body;
+  const userBefore = await User.findById(id);
   const user = await User.findByIdAndUpdate(id, { authStatus }, { new: true });
+
+  // Log audit event
+  await createAuditLog({
+    action: "user_auth_status_changed",
+    actor: {
+      userId: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role,
+    },
+    resourceType: "User",
+    resourceId: id,
+    changes: {
+      before: { authStatus: userBefore?.authStatus },
+      after: { authStatus },
+    },
+    ipAddress: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
+
   res.json({ data: user });
 }
 
@@ -103,6 +145,28 @@ export async function deleteUser(req, res) {
   }
   
   await User.findByIdAndDelete(id);
+
+  // Log audit event
+  await createAuditLog({
+    action: "user_deleted",
+    actor: {
+      userId: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role,
+    },
+    resourceType: "User",
+    resourceId: id,
+    changes: {
+      before: {
+        username: userToDelete.username,
+        role: userToDelete.role,
+        authStatus: userToDelete.authStatus,
+      },
+    },
+    ipAddress: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
+
   res.json({ message: "User deleted successfully" });
 }
 
@@ -139,6 +203,23 @@ export async function resetUserPassword(req, res) {
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
+
+  // Log audit event
+  await createAuditLog({
+    action: "user_password_reset",
+    actor: {
+      userId: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role,
+    },
+    resourceType: "User",
+    resourceId: id,
+    metadata: {
+      targetUsername: user.username,
+    },
+    ipAddress: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
   
   res.json({ message: "Password reset successfully" });
 }

@@ -14,6 +14,7 @@ import dashboardRoutes from "./routes/dashboards.js";
 import notificationRoutes from "./routes/notifications.js";
 import requestRoutes from "./routes/requests.js";
 import reportRoutes from "./routes/reports.js";
+import procurementRoutes from "./routes/procurement.js";
 import uploadRoutes from "./routes/uploads.js";
 import accountsRoutes from "./routes/accounts.js";
 import claimsRoutes from "./routes/claims.js";
@@ -23,7 +24,7 @@ import schemeDeductionsRoutes from "./routes/schemeDeductions.js";
 import cycleRoutes from "./routes/cycles.js";
 import { applySecurity } from "./middleware/security.js";
 import { requestIdMiddleware, requestLoggerMiddleware } from "./middleware/requestContext.js";
-import { logError } from "./utils/logger.js";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
 function isAllowedDevelopmentOrigin(origin) {
   try {
@@ -155,6 +156,7 @@ export function createApp(options = {}) {
   app.use("/notifications", notificationRoutes);
   app.use("/requests", requestRoutes);
   app.use("/reports", reportRoutes);
+  app.use("/procurement", procurementRoutes);
   app.use("/uploads", uploadRoutes);
   app.use("/claims", claimsRoutes);
   app.use("/recoverables", recoverablesRoutes);
@@ -163,25 +165,11 @@ export function createApp(options = {}) {
   app.use("/api/cycles", cycleRoutes);
   app.use("/", accountsRoutes);
 
-  app.use((err, req, res, next) => {
-    if (err?.name === "MulterError") {
-      if (err.code === "LIMIT_FILE_SIZE") {
-        return res
-          .status(413)
-          .json({ message: `File too large. Max allowed size is ${config.uploadMaxMb} MB` });
-      }
-      return res.status(400).json({ message: err.message || "Upload error" });
-    }
+  // 404 handler (must be before error handler)
+  app.use(notFoundHandler);
 
-    logError("http.error", {
-      requestId: req.requestId,
-      method: req.method,
-      path: req.originalUrl,
-      error: err,
-    });
-
-    res.status(500).json({ message: "Server error" });
-  });
+  // Global error handler (must be last)
+  app.use(errorHandler);
 
   return app;
 }

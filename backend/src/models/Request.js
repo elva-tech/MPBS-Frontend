@@ -15,4 +15,9 @@ const RequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Indexes for performance
+RequestSchema.index({ userId: 1, status: 1 });
+RequestSchema.index({ status: 1, createdAt: -1 });
+RequestSchema.index({ type: 1 });
+
 export const Request = mongoose.model("Request", RequestSchema);

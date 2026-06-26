@@ -47,6 +47,15 @@ import Schemes from "../modules/account/Schemes";
 import ClaimsRecoverables from "../modules/account/ClaimsRecoverables";
 import Invoices from "../modules/account/Invoices";
 import AccountReports from "../modules/account/Reports";
+import ProcurementLogin from "../modules/procurement/Login";
+import ProcurementDashboard from "../modules/procurement/Dashboard";
+import ProcurementProducts from "../modules/procurement/Products";
+import ProcurementInventory from "../modules/procurement/Inventory";
+import ProcurementDispatches from "../modules/procurement/Dispatches";
+import ProcurementReports from "../modules/procurement/Reports";
+import ProcurementPlaceholder from "../modules/procurement/Placeholder";
+import ProcurementLayout from "./layout/ProcurementLayout";
+import ProcurementAuthGuard from "../shared/components/ProcurementAuthGaurd";
 
 // ================= AUDIT =================
 import AuditLogin from "../modules/audit/Login";
@@ -140,6 +149,27 @@ export default function AppRouter() {
           <Route path="truck-sheet" element={<TruckSheet />} />
           <Route path="reports" element={<Reports />} />
           <Route path="complaints" element={<BmcComplaints />} />
+        </Route>
+
+        {/* ================= PROCUREMENT & INPUTS ROUTES ================= */}
+        <Route path="/procurement/login" element={<ProcurementLogin />} />
+        <Route path="/login/procurement" element={<ProcurementLogin />} />
+        <Route path="/p-and-i/login" element={<ProcurementLogin />} />
+
+        <Route
+          path="/procurement"
+          element={
+            <ProcurementAuthGuard>
+              <ProcurementLayout />
+            </ProcurementAuthGuard>
+          }
+        >
+          <Route index element={<Navigate to="/procurement/dashboard" replace />} />
+          <Route path="dashboard" element={<ProcurementDashboard />} />
+          <Route path="products" element={<ProcurementProducts />} />
+          <Route path="inventory" element={<ProcurementInventory />} />
+          <Route path="dispatches" element={<ProcurementDispatches />} />
+          <Route path="reports" element={<ProcurementReports />} />
         </Route>
 
         {/* ================= AUDIT ROUTES ================= */}

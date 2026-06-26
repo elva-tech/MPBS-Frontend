@@ -12,7 +12,14 @@ const DAIRY_LIST = ["Dairy 1", "Dairy 2"];
 const DESIGNATIONS = ["Manager", "Staff", "Supervisor"];
 const BUILDING_TYPES = ["Type A", "Type B", "Type C"];
 
-const ROLES = ["Society", "EO", "BMC", "Dairy", "Other Users"];
+const ROLES = [
+  { label: "Society", value: "Society" },
+  { label: "EO", value: "EO" },
+  { label: "BMC", value: "BMC" },
+  { label: "Dairy", value: "Dairy" },
+  { label: "Procurement & Inputs", value: "ProcurementInputs" },
+  { label: "Other Users", value: "Other Users" },
+];
 const ROUTE_OPTIONS = ["1", "2", "3"];
 
 /* ---------------- SOCIETY / BMC COMMON ---------------- */
@@ -186,7 +193,7 @@ export default function AddUserModal({ onClose, onSubmit }) {
               className="rounded-lg border border-[#d7dbe3] px-3 py-2 text-sm text-slate-700 focus:border-[#1E4B6B] focus:outline-none focus:ring-2 focus:ring-[#1E4B6B]"
             >
               <option value="">Select Role</option>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
 
             <input

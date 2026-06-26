@@ -4,6 +4,7 @@ import { Claims } from "../models/Claims.js";
 import { Recoverables } from "../models/Recoverables.js";
 import { SchemeBenefits } from "../models/SchemeBenefits.js";
 import { SchemeDeduction } from "../models/SchemeDeduction.js";
+import { withTransaction } from "../utils/transactionHelper.js";
 import {
   AccountAuditLog,
   BillingCycle,
@@ -232,11 +233,11 @@ async function ensureCycleStatus(cycle, allowedStatuses, message) {
 
 async function calculateCycleBilling(req, cycle) {
   const entries = await MilkEntry.find({ date: { $gte: cycle.startDate, $lte: cycle.endDate } });
-  const societies = await Society.find({}, "societyId societyName district");
+  const societies = await Society.find({}, "societyId societyName district").lean();
   const societiesById = new Map(societies.map((society) => [society.societyId, society]));
-  const schemes = await Scheme.find({ isActive: true });
-  const cycleClaims = await Claim.find({ billingCycleId: String(cycle._id) });
-  const recoverables = await Recoverable.find({ status: "ACTIVE", remainingAmount: { $gt: 0 } });
+  const schemes = await Scheme.find({ isActive: true }).lean();
+  const cycleClaims = await Claim.find({ billingCycleId: String(cycle._id) }).lean();
+  const recoverables = await Recoverable.find({ status: "ACTIVE", remainingAmount: { $gt: 0 } }).lean();
 
   await SocietyBilling.deleteMany({ billingCycleId: String(cycle._id) });
   await BillingLineItem.deleteMany({ billingCycleId: String(cycle._id) });
@@ -412,7 +413,7 @@ export async function getAccountsDashboard(req, res) {
   const cycleEntries = await MilkEntry.find({ date: { $gte: activeCycle.startDate, $lte: activeCycle.endDate } });
 
   // Get all societies for this cycle
-  const societies = await Society.find();
+  const societies = await Society.find().lean();
   const societyIds = societies.map((s) => s.societyId);
 
   // If we have stored SocietyBilling rows for this cycle, derive metrics from them
@@ -461,9 +462,22 @@ export async function getAccountsDashboard(req, res) {
   const milkBuffalo = sum(cycleEntries, (entry) => (entry.milkType === "Buffalo" ? entry.qty : 0));
 
   const recentCycles = await BillingCycle.find().sort({ createdAt: -1 }).limit(6);
+  
+  // Optimize N+1 query: fetch all billing rows for recent cycles at once
+  const recentCycleIds = recentCycles.map((c) => String(c._id));
+  const allRows = await SocietyBilling.find({ billingCycleId: { $in: recentCycleIds } }).lean();
+  
+  // Group rows by billingCycleId for efficient lookup
+  const rowsByCycle = {};
+  for (const row of allRows) {
+    const cycleId = String(row.billingCycleId);
+    if (!rowsByCycle[cycleId]) rowsByCycle[cycleId] = [];
+    rowsByCycle[cycleId].push(row);
+  }
+  
   const revenueTrend = [];
   for (const item of recentCycles.reverse()) {
-    const rows = await SocietyBilling.find({ billingCycleId: String(item._id) });
+    const rows = rowsByCycle[String(item._id)] || [];
     revenueTrend.push({ cycle: item.code, value: sum(rows, (row) => row.netPayable) });
   }
 

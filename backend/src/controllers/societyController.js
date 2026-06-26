@@ -10,7 +10,11 @@ export async function listSocieties(req, res) {
     query.bmcId = bmcId;
   }
   
-  const projection = "societyId societyName district taluk contactNumber bmcId";
+  // Include feedMineral data for users who need procurement details
+  let projection = "societyId societyName district taluk contactNumber bmcId";
+  if (req.user && ["Admin", "ProcurementInputs", "BMC"].includes(req.user.role)) {
+    projection += " feedMineral";
+  }
   const pagination = getPagination(req.query);
 
   if (!pagination.enabled) {

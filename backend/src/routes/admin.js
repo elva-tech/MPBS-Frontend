@@ -26,7 +26,7 @@ router.post(
     z.object({
       username: z.string().min(3),
       password: z.string().min(6),
-      role: z.enum(["Admin", "Society", "BMC", "EO", "Dairy", "Account", "Other"]),
+      role: z.enum(["Admin", "Society", "BMC", "EO", "Dairy", "Account", "ProcurementInputs", "Other"]),
       profile: z.record(z.any()).optional(),
     })
   ),
@@ -44,7 +44,7 @@ router.patch(
   validate(
     z.object({
       username: z.string().min(3).optional(),
-      role: z.enum(["Admin", "Society", "BMC", "EO", "Dairy", "Account", "Other"]).optional(),
+      role: z.enum(["Admin", "Society", "BMC", "EO", "Dairy", "Account", "ProcurementInputs", "Other"]).optional(),
       authStatus: z.enum(["Approved", "Pending", "Rejected"]).optional(),
       profile: z.record(z.any()).optional(),
     })

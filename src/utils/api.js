@@ -16,6 +16,10 @@ function getToken() {
     return localStorage.getItem("bmc_token") || localStorage.getItem("auth_token") || "";
   }
 
+  if (pathname.startsWith("/procurement")) {
+    return localStorage.getItem("procurement_token") || localStorage.getItem("auth_token") || "";
+  }
+
   return localStorage.getItem("society_token") || localStorage.getItem("auth_token") || "";
 }
 
@@ -313,6 +317,13 @@ export function createUser(body) {
 export function updateUserAuth(id, body) {
   return request(`/admin/users/${id}/auth`, {
     method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createDispatch(body) {
+  return request("/procurement/dispatches", {
+    method: "POST",
     body: JSON.stringify(body),
   });
 }

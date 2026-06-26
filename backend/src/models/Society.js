@@ -23,5 +23,11 @@ const SocietySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Indexes for performance
+SocietySchema.index({ bmcId: 1 });
+SocietySchema.index({ eoId: 1 });
+SocietySchema.index({ societyId: 1 });
+SocietySchema.index({ district: 1, taluk: 1 });
+
 export const Society = mongoose.model("Society", SocietySchema);
 
