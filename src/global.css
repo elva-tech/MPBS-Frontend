@@ -1,3 +1,56 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: "Poppins", sans-serif;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  caret-color: transparent;
+}
+
+*,
+*::before,
+*::after {
+  caret-color: transparent;
+}
+
+*:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Keep app non-selectable by default, but allow normal typing/editing in form fields */
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  caret-color: auto;
+}
+
+body.dashboard-no-scroll {
+  overflow: hidden;
+}
+
+body.dashboard-no-scroll ::-webkit-scrollbar {
+  display: none;
+}
+
+body.dashboard-no-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Hide scrollbars while preserving scroll behavior */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

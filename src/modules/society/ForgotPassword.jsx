@@ -1,6 +1,6 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { resetPassword } from "../../api/auth";
+import { createRequest } from "../../utils/api";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -17,8 +17,7 @@ export default function ForgotPassword() {
   };
 
   const isValidPassword = (password) => {
-    const regex =
-      /^(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    const regex = /^(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
     return regex.test(password);
   };
 
@@ -44,16 +43,14 @@ export default function ForgotPassword() {
       return;
     }
 
-    // MOCK API – backend will handle approval later
-    const res = await resetPassword({
-      societyCode,
+    await createRequest({
+      type: "forgot_password",
+      username: societyCode,
+      role: "Society",
       newPassword,
+      message: "Forgot password, please reset",
+      status: "pending",
     });
-
-    if (!res.success) {
-      alert(res.message);
-      return;
-    }
 
     alert(
       "Password change request submitted.\n\nIt will be applied after admin approval."

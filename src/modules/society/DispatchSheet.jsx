@@ -1,15 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
-import mockDispatchData from "../../api/dispatch";
 
 export default function DispatchSheet() {
+  const navigate = useNavigate();
   const [dispatchData, setDispatchData] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleGenerate = () => {
     setLoading(true);
+    // For now, show a message that dispatch generation needs to be implemented
     setTimeout(() => {
-      setDispatchData(mockDispatchData);
+      alert("Dispatch generation is not implemented yet");
       setLoading(false);
     }, 300);
   };
@@ -93,7 +95,16 @@ export default function DispatchSheet() {
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-semibold mb-4">Dispatch Sheet</h1>
+      <div className="bg-cyan-700 text-white rounded-md px-4 py-3 flex items-center justify-between mb-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="bg-white/15 hover:bg-white/25 text-white px-3 py-1.5 rounded text-sm font-semibold"
+        >
+          Back
+        </button>
+        <h1 className="text-base font-semibold">Dispatch Sheet</h1>
+        <div className="w-14" />
+      </div>
 
       <button
         onClick={handleGenerate}
@@ -183,3 +194,9 @@ export default function DispatchSheet() {
     </div>
   );
 }
+
+
+
+
+
+

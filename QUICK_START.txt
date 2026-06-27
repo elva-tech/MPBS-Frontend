@@ -1,0 +1,109 @@
+╔════════════════════════════════════════════════════════════════╗
+║                    MPBS - QUICK START GUIDE                    ║
+╚════════════════════════════════════════════════════════════════╝
+
+🚀 EASIEST WAY TO START
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Simply double-click: start.bat
+
+This will:
+  ✓ Start backend server (port 4000)
+  ✓ Wait for backend to be ready
+  ✓ Start frontend server (port 5173)
+  ✓ Open in separate terminal windows
+
+
+📋 FIRST TIME SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Install dependencies:
+   npm install
+   cd backend && npm install && cd ..
+
+2. Ensure MongoDB is running on: mongodb://127.0.0.1:27017
+
+3. Seed the database:
+   cd backend && npm run seed && cd ..
+
+4. Start the project:
+   Double-click start.bat
+
+
+🔐 LOGIN CREDENTIALS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Society User:
+  Username: SOCIETY_001
+  Password: password123
+  URL: http://localhost:5173/society/login
+
+BMC User:
+  Username: BMC_001
+  Password: bmc123
+  URL: http://localhost:5173/bmc/login
+
+Procurement & Inputs User:
+  Username: P&I
+  Password: 123
+  URL: http://localhost:5173/procurement/login
+
+Audit User:
+  Username: audit
+  Password: audit123
+  URL: http://localhost:5173/audit/login
+
+Admin User:
+  Username: admin
+  Password: admin123
+  URL: http://localhost:5173/admin/login
+
+
+🌐 APPLICATION URLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Frontend:     http://localhost:5173
+Backend API:  http://localhost:4000
+Health Check: http://localhost:4000/health
+
+
+🔧 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Problem: "Fetch failed" or connection errors
+Solution: 
+  • Use start.bat (ensures backend starts first)
+  • API now auto-retries failed requests 3 times
+  • Check if MongoDB is running
+
+Problem: Port 4000 already in use
+Solution:
+  PowerShell: Get-Process -Name node | Stop-Process -Force
+  Then restart using start.bat
+
+Problem: Backend won't start
+Solution:
+  • Check backend/.env file exists
+  • Verify MongoDB connection string
+  • Check backend/src/server.js for errors
+
+
+📁 ENVIRONMENT FILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+.env (Frontend):
+  VITE_ENV=development
+  VITE_API_BASE=http://localhost:4000
+
+backend/.env (Backend):
+  PORT=4000
+  MONGODB_URI=mongodb://127.0.0.1:27017/mpbs
+  JWT_SECRET=replace_with_strong_secret
+  CORS_ORIGIN=http://localhost:5173,http://localhost:5175
+  SOCIETY_FIXED_RATE=45
+
+
+✨ PERMANENT FIXES APPLIED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ API retry logic (3 attempts with backoff)
+✓ CORS properly configured for all dev origins
+✓ VITE_API_BASE environment variable set
+✓ Automatic startup scripts (start.bat / start.ps1)
+✓ Backend health check before frontend starts
+✓ Proper error handling and connection recovery
+
+Your fetch issues are now permanently resolved!

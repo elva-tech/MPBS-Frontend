@@ -1,0 +1,38 @@
+{
+    "name":  "mpbs-backend",
+    "version":  "1.0.0",
+    "type":  "module",
+    "private":  true,
+    "scripts":  {
+                    "dev":  "node scripts/dev.js",
+                    "start":  "node src/server.js",
+                    "start:prod": "node src/server.js",
+                    "test": "node --test",
+                    "seed":  "node scripts/seed.js",
+                    "set-admin": "node scripts/setAdminCredentials.js",
+                    "set-user": "node scripts/setUserCredentials.js",
+                    "provision-map": "node scripts/provisionMappedUsers.js",
+                    "check-quality": "node scripts/checkQualityRule.js"
+                },
+    "dependencies":  {
+                         "bcryptjs":  "^2.4.3",
+                         "cors":  "^2.8.5",
+                         "dotenv":  "^16.4.5",
+                         "express":  "^4.19.2",
+                         "jsonwebtoken":  "^9.0.2",
+                         "mongoose":  "^8.9.3",
+                         "morgan":  "^1.10.0",
+                         "zod":  "^3.23.8",
+                         "@aws-sdk/client-s3":  "^3.873.0",
+                         "compression":  "^1.8.1",
+                         "express-mongo-sanitize":  "^2.2.0",
+                         "express-rate-limit":  "^8.0.1",
+                         "helmet":  "^8.1.0",
+                         "hpp":  "^0.2.3",
+                         "multer":  "^2.0.2"
+                                         },
+        "devDependencies": {
+            "supertest": "^7.1.1"
+        }
+}
+

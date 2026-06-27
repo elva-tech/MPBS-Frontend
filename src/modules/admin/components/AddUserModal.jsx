@@ -1,15 +1,25 @@
 import { useState } from "react";
-import {
-  DISTRICTS,
-  EO_LIST,
-  BMC_LIST,
-  DAIRY_LIST,
-  DESIGNATIONS,
-  BUILDING_TYPES
-} from "../../../mock/adminSchema";
 import { Eye, EyeOff } from "lucide-react";
 
-const ROLES = ["Society", "EO", "BMC", "Dairy", "Other Users"];
+const DISTRICTS = [
+  { name: "District 1", taluks: ["Taluk 1", "Taluk 2", "Taluk 3"] },
+  { name: "District 2", taluks: ["Taluk 1", "Taluk 2"] },
+  { name: "District 3", taluks: ["Taluk 1"] },
+];
+const EO_LIST = ["EO 1", "EO 2"];
+const BMC_LIST = ["BMC 1", "BMC 2"];
+const DAIRY_LIST = ["Dairy 1", "Dairy 2"];
+const DESIGNATIONS = ["Manager", "Staff", "Supervisor"];
+const BUILDING_TYPES = ["Type A", "Type B", "Type C"];
+
+const ROLES = [
+  { label: "Society", value: "Society" },
+  { label: "EO", value: "EO" },
+  { label: "BMC", value: "BMC" },
+  { label: "Dairy", value: "Dairy" },
+  { label: "Procurement & Inputs", value: "ProcurementInputs" },
+  { label: "Other Users", value: "Other Users" },
+];
 const ROUTE_OPTIONS = ["1", "2", "3"];
 
 /* ---------------- SOCIETY / BMC COMMON ---------------- */
@@ -52,7 +62,7 @@ const SocietyFields = ({ formData, handleChange, selectedDistrict }) => {
 
         <select name="taluk" value={formData.taluk || ""} disabled={!formData.district} onChange={handleChange} required className="border px-3 py-2 rounded">
           <option value="">Select Taluk</option>
-          {selectedDistrict?.taluks.map(t => <option key={t} value={t}>{t}</option>)}
+          {(selectedDistrict?.taluks || []).map(t => <option key={t} value={t}>{t}</option>)}
         </select>
 
         <input name="hobli" placeholder="Hobli" value={formData.hobli || ""} onChange={handleChange} required className="border px-3 py-2 rounded" />
@@ -159,13 +169,14 @@ export default function AddUserModal({ onClose, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    await onSubmit({
-      ...formData,
-      role,
-      status: "pending",
-      requestedAt: new Date().toISOString()
-    });
-    setLoading(false);
+    try {
+      await onSubmit({
+        ...formData,
+        role,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectedDistrict = DISTRICTS.find(d => d.name === formData.district);
@@ -175,9 +186,14 @@ export default function AddUserModal({ onClose, onSubmit }) {
       <div className="bg-white w-full max-w-4xl rounded shadow-lg max-h-[90vh] overflow-auto">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="grid grid-cols-3 gap-4">
-            <select value={role} onChange={e => { setRole(e.target.value); setFormData({}); }} required className="border px-3 py-2 rounded">
+            <select
+              value={role}
+              onChange={e => { setRole(e.target.value); setFormData({}); }}
+              required
+              className="rounded-lg border border-[#d7dbe3] px-3 py-2 text-sm text-slate-700 focus:border-[#1E4B6B] focus:outline-none focus:ring-2 focus:ring-[#1E4B6B]"
+            >
               <option value="">Select Role</option>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
 
             <input
@@ -204,6 +220,12 @@ export default function AddUserModal({ onClose, onSubmit }) {
               </button>
             </div>
           </div>
+
+          {(role === "Society" || role === "BMC") && (
+            <p className="text-sm text-slate-600">
+              This account will be created as Pending and can log in only after admin approval.
+            </p>
+          )}
 
           {role === "Society" && <SocietyFields formData={formData} handleChange={handleChange} selectedDistrict={selectedDistrict} />}
 
@@ -253,7 +275,11 @@ export default function AddUserModal({ onClose, onSubmit }) {
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button type="button" onClick={onClose} className="border px-4 py-2 rounded">Cancel</button>
-            <button type="submit" disabled={loading || !role} className="bg-cyan-700 text-white px-6 py-2 rounded">
+            <button
+              type="submit"
+              disabled={loading || !role}
+              className="rounded-lg bg-[#1E4B6B] px-6 py-2 text-sm font-semibold text-white shadow-[0_10px_18px_rgba(30,75,107,0.22)] transition hover:bg-[#163A54] disabled:cursor-not-allowed disabled:opacity-70"
+            >
               {loading ? "Saving..." : "Add User"}
             </button>
           </div>

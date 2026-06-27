@@ -1,0 +1,8 @@
+start
+single start
+single done
+entry null? False
+target: e:\Elva MILK\MPBS-Frontend\_koli_src\koli\login-ui\public\cow.png
+dir: e:\Elva MILK\MPBS-Frontend\_koli_src\koli\login-ui\public
+public: 5
+src: 10

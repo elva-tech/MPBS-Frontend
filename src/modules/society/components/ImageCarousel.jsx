@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 
 const images = [
   "/image.png",
@@ -22,13 +22,13 @@ export default function ImageCarousel() {
         onClick={prev}
         className="absolute left-4 z-10 text-3xl bg-white/70 hover:bg-white px-3 py-2 rounded-full shadow"
       >
-        ‹
+        â€¹
       </button>
 
       {/* IMAGE */}
       <img
         src={images[index]}
-        alt="Rate Sheet"
+        alt="Report"
         className="w-[90vw] h-[60vh] object-contain border rounded bg-white"
       />
 
@@ -37,8 +37,12 @@ export default function ImageCarousel() {
         onClick={next}
         className="absolute right-4 z-10 text-3xl bg-white/70 hover:bg-white px-3 py-2 rounded-full shadow"
       >
-        ›
+        â€º
       </button>
     </div>
   );
 }
+
+
+
+
