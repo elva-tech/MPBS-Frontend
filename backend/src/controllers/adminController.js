@@ -1,8 +1,18 @@
-﻿import bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 import { getPagination, makePaginationMeta } from "../utils/pagination.js";
 import { Notification } from "../models/Notification.js";
 import { createAuditLog } from "../services/auditService.js";
+import {
+  assertBmcExists,
+  assertDairyExists,
+  listHierarchyOptions,
+  normalizeBmcProfile,
+  normalizeDairyProfile,
+  resolveBmcId,
+  resolveDairyId,
+  syncSocietyRecord,
+} from "../services/userHierarchy.js";
 
 export async function getDashboardStats(req, res) {
   const [totalUsers, usersByRole, approvedUsers, rejectedUsers, pendingUsers, totalNotifications] = await Promise.all([
@@ -66,44 +76,79 @@ export async function listUsers(req, res) {
   });
 }
 
+export async function listUserHierarchyOptions(req, res) {
+  const data = await listHierarchyOptions();
+  res.json({ data });
+}
+
 export async function createUser(req, res) {
-  const { username, password, role, profile } = req.body;
-  const normalizedRole = role === "Other Users" ? "Other" : role;
-  const authStatus = normalizedRole === "Admin" ? "Approved" : "Pending";
-  const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({
-    username,
-    passwordHash,
-    role: normalizedRole,
-    authStatus,
-    profile,
-  });
+  try {
+    const { username, password, role, profile: rawProfile = {} } = req.body;
+    const normalizedRole = role === "Other Users" ? "Other" : role;
+    const authStatus = normalizedRole === "Admin" ? "Approved" : "Pending";
+    let profile = { ...rawProfile };
 
-  // Log audit event
-  await createAuditLog({
-    action: "user_created",
-    actor: {
-      userId: req.user?.id,
-      username: req.user?.username,
-      role: req.user?.role,
-    },
-    resourceType: "User",
-    resourceId: user._id.toString(),
-    changes: {
-      after: {
-        username,
-        role: normalizedRole,
-        authStatus,
+    if (normalizedRole === "Society") {
+      await assertBmcExists(resolveBmcId(profile));
+    }
+
+    if (normalizedRole === "BMC") {
+      await assertDairyExists(resolveDairyId(profile));
+      profile = normalizeBmcProfile(username, profile);
+    }
+
+    if (normalizedRole === "Dairy") {
+      profile = normalizeDairyProfile(username, profile);
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      username,
+      passwordHash,
+      role: normalizedRole,
+      authStatus,
+      profile,
+    });
+
+    if (normalizedRole === "Society") {
+      try {
+        await syncSocietyRecord(username, profile);
+      } catch (syncError) {
+        await User.findByIdAndDelete(user._id);
+        throw syncError;
+      }
+    }
+
+    await createAuditLog({
+      action: "user_created",
+      actor: {
+        userId: req.user?.id,
+        username: req.user?.username,
+        role: req.user?.role,
       },
-    },
-    ipAddress: req.ip,
-    userAgent: req.headers["user-agent"],
-  });
+      resourceType: "User",
+      resourceId: user._id.toString(),
+      changes: {
+        after: {
+          username,
+          role: normalizedRole,
+          authStatus,
+        },
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
 
-  const createdUser = user.toObject();
-  delete createdUser.passwordHash;
+    const createdUser = user.toObject();
+    delete createdUser.passwordHash;
 
-  res.status(201).json({ data: createdUser });
+    res.status(201).json({ data: createdUser });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: "Username already exists." });
+    }
+    return res.status(400).json({ message: error.message || "Unable to create user." });
+  }
 }
 
 export async function updateUserAuth(req, res) {

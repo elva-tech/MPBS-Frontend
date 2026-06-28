@@ -193,14 +193,14 @@ export const getBillingCycleSummary = async (billingCycleId, cycleStartDate, cyc
 export const getDashboardMetrics = async (billingCycleId, cycleStartDate, cycleEndDate, societyIds) => {
   try {
     const [milkEntries, claims, schemeBenefits, schemeDeductions, recoverables] = await Promise.all([
-      MilkEntry.find({ date: { $gte: cycleStartDate, $lte: cycleEndDate } }, "amount"),
+      MilkEntry.find({ date: { $gte: cycleStartDate, $lte: cycleEndDate } }, "amount qty"),
       Claims.find({ billingCycleId, status: { $in: ["approved", "applied"] } }, "amount"),
       SchemeBenefits.find({ billingCycleId, status: { $in: ["approved", "applied"] } }, "amount"),
       SchemeDeduction.find({ billingCycleId, status: { $in: ["approved", "applied"] } }, "amount"),
       Recoverables.find({ status: "active" }, "amountPerCycle totalCycles appliedCycles"),
     ]);
 
-    const totalMilkQty = round(milkEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
+    const totalMilkAmount = round(milkEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
     const totalClaims = round(claims.reduce((sum, claim) => sum + Number(claim.amount || 0), 0));
     const totalSchemeBenefits = round(schemeBenefits.reduce((sum, benefit) => sum + Number(benefit.amount || 0), 0));
     const totalSchemeDeductions = round(schemeDeductions.reduce((sum, deduction) => sum + Number(deduction.amount || 0), 0));
@@ -211,25 +211,24 @@ export const getDashboardMetrics = async (billingCycleId, cycleStartDate, cycleE
         return sum + Number(recoverable.amountPerCycle || 0);
       }, 0)
     );
-    const societyCount = societyIds.length || 0;
-    const totalPayable = round(totalMilkQty + totalClaims * societyCount + totalSchemeBenefits * societyCount);
-    const totalDeductions = round((totalRecoverables + totalSchemeDeductions) * societyCount);
+    const totalPayable = round(totalMilkAmount + totalClaims + totalSchemeBenefits);
+    const totalDeductions = round(totalRecoverables + totalSchemeDeductions);
     const netPayableSum = round(totalPayable - totalDeductions);
 
     return {
-      totalMilkValue: round(totalMilkQty),
+      totalMilkValue: round(totalMilkAmount),
       totalPayable: round(totalPayable),
       totalDeductions: round(totalDeductions),
       netPayable: round(netPayableSum),
       breakdown: {
         additions: {
-          milkValue: round(totalMilkQty),
-          claims: round(totalClaims * societyCount),
-          schemeBenefits: round(totalSchemeBenefits * societyCount),
+          milkValue: round(totalMilkAmount),
+          claims: round(totalClaims),
+          schemeBenefits: round(totalSchemeBenefits),
         },
         deductions: {
-          recoverables: round(totalRecoverables * societyCount),
-          schemeDeductions: round(totalSchemeDeductions * societyCount),
+          recoverables: round(totalRecoverables),
+          schemeDeductions: round(totalSchemeDeductions),
         },
       },
     };

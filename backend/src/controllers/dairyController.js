@@ -1,6 +1,7 @@
 import { MilkEntry } from "../models/MilkEntry.js";
 import { Society } from "../models/Society.js";
 import { TankerShipment } from "../models/TankerShipment.js";
+import { User } from "../models/User.js";
 import { Verification } from "../models/Verification.js";
 
 const PENALTY_RATE_PER_L = 35;
@@ -76,11 +77,31 @@ async function applyTransportPenalties(shipment, deductionTotal) {
   }
 }
 
+function escapeRegExp(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function resolveDairyUnitLabel({ dairyUnit = "", dairyId = "" } = {}) {
+  const unit = String(dairyUnit || "").trim();
+  if (unit) return unit;
+
+  const userId = String(dairyId || "").trim();
+  if (!userId) return "";
+
+  const dairyUser = await User.findOne({ username: userId, role: "Dairy" }, "username profile").lean();
+  return String(dairyUser?.profile?.dairyName || dairyUser?.profile?.dairyId || "").trim();
+}
+
 export async function listShipments(req, res) {
-  const dairyUnit = String(req.query.dairyUnit || "").trim();
   const date = String(req.query.date || "").trim() || todayIso();
+  const dairyId = String(req.query.dairyId || req.user?.username || "").trim();
+  const dairyUnit = await resolveDairyUnitLabel({
+    dairyUnit: req.query.dairyUnit,
+    dairyId,
+  });
+
   const query = { receivedDate: date };
-  if (dairyUnit) query.dairyUnit = new RegExp(dairyUnit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  if (dairyUnit) query.dairyUnit = new RegExp(escapeRegExp(dairyUnit), "i");
 
   let shipments = await TankerShipment.find(query).sort({ createdAt: -1 });
   if (!shipments.length) {
@@ -166,7 +187,11 @@ export async function finalizeShipment(req, res) {
 }
 
 async function seedShipmentsForDate(date, dairyUnit = "") {
-  const existing = await TankerShipment.findOne({ receivedDate: date });
+  const unitLabel = String(dairyUnit || "Ballari Dairy").trim();
+  const existing = await TankerShipment.findOne({
+    receivedDate: date,
+    dairyUnit: new RegExp(`^${escapeRegExp(unitLabel)}$`, "i"),
+  });
   if (existing) return;
 
   const societies = await Society.find({}, "societyId societyName bmcId district route").lean();
@@ -222,7 +247,7 @@ async function seedShipmentsForDate(date, dairyUnit = "") {
   await TankerShipment.create({
     tankerId: "T102",
     route: "Route-01",
-    dairyUnit: dairyUnit || "Ballari Dairy",
+    dairyUnit: unitLabel,
     arrivalTime: "6:10 AM",
     transporter: "Ramesh Logistics",
     shift: "Morning",

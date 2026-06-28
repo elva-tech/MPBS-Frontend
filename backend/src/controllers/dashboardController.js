@@ -3,6 +3,7 @@ import { Society } from "../models/Society.js";
 import { SocietyBilling } from "../models/accounts.js";
 import { Verification } from "../models/Verification.js";
 import { isGoodQualityByThreshold } from "../utils/quality.js";
+import { getSocietiesForDairy } from "../services/userHierarchy.js";
 
 function toDateStr(d = new Date()) {
   return d.toISOString().split("T")[0];
@@ -267,21 +268,9 @@ export async function getDairyDashboard(req, res) {
   const targetDate = selectedDate || today;
   const session = normalizeSession(req.query.session);
   const dairyUnit = String(req.query.dairyUnit || "").trim();
+  const dairyUserId = String(req.query.dairyId || req.user?.username || "").trim();
 
-  let societies = [];
-  if (dairyUnit) {
-    const regex = new RegExp(escapeRegExp(dairyUnit), "i");
-    societies = await Society.find(
-      {
-        $or: [{ route: dairyUnit }, { route: regex }, { district: regex }, { bmcId: regex }],
-      },
-      "societyId district route bmcId"
-    );
-  }
-
-  if (!dairyUnit || !societies.length) {
-    societies = await Society.find({}, "societyId district route bmcId");
-  }
+  const societies = await getSocietiesForDairy({ dairyUnit, dairyUserId });
 
   const societyIds = societies.map((s) => s.societyId).filter(Boolean);
 
