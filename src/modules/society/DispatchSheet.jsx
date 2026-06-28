@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
+import { usePopup } from "../../shared/context/PopupContext";
 
 export default function DispatchSheet() {
   const navigate = useNavigate();
+  const { showPopup } = usePopup();
   const [dispatchData, setDispatchData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setLoading(true);
-    // For now, show a message that dispatch generation needs to be implemented
-    setTimeout(() => {
-      alert("Dispatch generation is not implemented yet");
+    setTimeout(async () => {
+      await showPopup({ message: "Dispatch generation is not implemented yet", type: "warning" });
       setLoading(false);
     }, 300);
   };
@@ -94,7 +95,7 @@ export default function DispatchSheet() {
   };
 
   return (
-    <div className="p-6">
+    <div className="module-page">
       <div className="bg-cyan-700 text-white rounded-md px-4 py-3 flex items-center justify-between mb-4">
         <button
           onClick={() => navigate(-1)}

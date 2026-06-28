@@ -40,6 +40,16 @@ BMC User:
   Password: bmc123
   URL: http://localhost:5173/bmc/login
 
+Account User:
+  Username: Account01
+  Password: 123
+  URL: http://localhost:5173/account/login
+
+Dairy User:
+  Username: DAIRY_001
+  Password: dairy123
+  URL: http://localhost:5173/login/dairy
+
 Procurement & Inputs User:
   Username: P&I
   Password: 123
@@ -51,7 +61,7 @@ Audit User:
   URL: http://localhost:5173/audit/login
 
 Admin User:
-  Username: admin
+  Username: admin001
   Password: admin123
   URL: http://localhost:5173/admin/login
 
@@ -76,11 +86,10 @@ Solution:
   PowerShell: Get-Process -Name node | Stop-Process -Force
   Then restart using start.bat
 
-Problem: Backend won't start
+Problem: Backend restarts every few seconds in dev
 Solution:
-  • Check backend/.env file exists
-  • Verify MongoDB connection string
-  • Check backend/src/server.js for errors
+  • Dev uses node --watch (restarts only when code changes)
+  • Production: use npm run start (no auto-restart loop)
 
 
 📁 ENVIRONMENT FILES

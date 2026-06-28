@@ -1,10 +1,9 @@
 import { Navigate } from "react-router-dom";
+import { hasModuleSession } from "../../utils/authSession";
 
 export default function DairyAuthGuard({ children }) {
-  const isAuthenticated = localStorage.getItem("dairy_auth") === "true";
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login/dairy" replace />;
+  if (!hasModuleSession("dairy", "Dairy")) {
+    return <Navigate to="/dairy/login" replace />;
   }
 
   return children;

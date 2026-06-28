@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { createRequest, listMyRequests, uploadComplaintFile } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
 import {
   filterComplaintsForPortal,
   getComplaintSubmitterName,
 } from "../../utils/complaints";
 
 export default function Complaints() {
+  const { showPopup } = usePopup();
   const accountUsername = localStorage.getItem("society_name") || "Society User";
   const [societyName, setSocietyName] = useState(accountUsername);
   const userId = localStorage.getItem("society_user_id") || "";
@@ -21,7 +23,7 @@ export default function Complaints() {
 
     const intervalId = setInterval(() => {
       loadMyComplaints();
-    }, 8000);
+    }, 60000);
 
     const onFocus = () => loadMyComplaints();
     window.addEventListener("focus", onFocus);
@@ -69,7 +71,7 @@ export default function Complaints() {
 
       await createRequest({
         type: "complaint",
-        userId,
+        ...(userId ? { userId } : {}),
         username: accountUsername,
         role: "Society",
         societyName,
@@ -78,20 +80,20 @@ export default function Complaints() {
         attachmentUrl: uploaded?.url || "",
       });
 
-      alert("Complaint submitted successfully");
+      await showPopup({ message: "Complaint submitted successfully", type: "success" });
       setComplaintText("");
       setAttachment(null);
       loadMyComplaints();
     } catch (error) {
-      alert(error.message || "Failed to submit complaint");
+      await showPopup({ message: error.message || "Failed to submit complaint", type: "error" });
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-full bg-[#F8F6F2] p-6 text-[#1F2A44]">
-      <div className="mx-auto max-w-3xl space-y-6">
+    <div className="module-page bg-[#F8F6F2] text-[#1F2A44]">
+      <div className="space-y-6">
         <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-bold text-[#1F2A44]">Complaints</h1>
 

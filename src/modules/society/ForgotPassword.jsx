@@ -1,9 +1,11 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createRequest } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
+  const { showPopup } = usePopup();
 
   const [form, setForm] = useState({
     societyCode: "",
@@ -27,19 +29,20 @@ export default function ForgotPassword() {
     const { societyCode, newPassword, confirmPassword } = form;
 
     if (!societyCode || !newPassword || !confirmPassword) {
-      alert("Please fill all fields");
+      await showPopup({ message: "Please fill all fields", type: "warning" });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      alert("Passwords do not match");
+      await showPopup({ message: "Passwords do not match", type: "error" });
       return;
     }
 
     if (!isValidPassword(newPassword)) {
-      alert(
-        "Password must be at least 8 characters and contain at least one special character"
-      );
+      await showPopup({
+        message: "Password must be at least 8 characters and contain at least one special character",
+        type: "warning",
+      });
       return;
     }
 
@@ -52,9 +55,10 @@ export default function ForgotPassword() {
       status: "pending",
     });
 
-    alert(
-      "Password change request submitted.\n\nIt will be applied after admin approval."
-    );
+    await showPopup({
+      message: "Password change request submitted.\n\nIt will be applied after admin approval.",
+      type: "success",
+    });
     navigate("/login");
   };
 

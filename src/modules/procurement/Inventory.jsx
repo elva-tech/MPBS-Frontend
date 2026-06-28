@@ -30,7 +30,7 @@ export default function ProcurementInventory() {
   const [activeTab, setActiveTab] = useState("summary");
 
   return (
-    <div className="space-y-4 p-6 text-[#1F2A44]">
+    <div className="module-page text-[#1F2A44]">
       <div className="grid grid-cols-1 overflow-hidden rounded-lg border border-[#D7E4FF] bg-white shadow-[0_4px_12px_rgba(15,41,74,0.08)] md:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card, index) => (
           <div

@@ -1,13 +1,15 @@
-﻿const MILK_TYPES = ["Buffalo", "Cow"];
+const MILK_TYPES = ["Buffalo", "Cow"];
 
 export default function MilkCollectionTable({
   sessionLabel,
   enabled,
+  locked = false,
   rows = [],
   onClearRow,
   onChange,
 }) {
   const isActive = enabled;
+  const isLockedSaved = locked && !enabled;
   const badgeClass = isActive
     ? "bg-white text-[#1E4B6B] border border-[#9BB6DA]"
     : "bg-[#F5EBD1] text-[#5F4C24] border border-[#CDBB8C]";
@@ -28,7 +30,7 @@ export default function MilkCollectionTable({
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badgeClass}`}
         >
-          {isActive ? "Active" : "Locked"}
+          {isLockedSaved ? "Locked (Saved)" : isActive ? "Active" : "Locked"}
           {!isActive && (
             <svg
               width="12"
@@ -66,8 +68,8 @@ export default function MilkCollectionTable({
         <div>Fat %</div>
         <div>SNF %</div>
         <div>Quantity (L)</div>
-        <div>Rate (?/L)</div>
-        <div>Amount (?)</div>
+        <div>Rate (Rs/L)</div>
+        <div>Amount (Rs)</div>
         {isActive && <div>Actions</div>}
       </div>
 

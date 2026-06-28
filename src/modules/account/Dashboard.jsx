@@ -11,8 +11,10 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { buildDashboardMetrics, buildTrendData, hydrateAccountSocieties, loadAccountState, setSelections } from "./engine";
+import { buildDashboardMetrics, buildTrendData, hydrateAccountSocieties } from "./engine";
+import { lockCycleBilling, runCycleBilling, setAccountSelections } from "./accountService";
 import { getAccountsDashboard } from "../../utils/api";
+import { litersTooltip, percentTooltip } from "../../shared/charts/tooltips";
 
 const chartColors = {
   darkBlue: "#1E4B6B",
@@ -102,10 +104,21 @@ function generateAllMonths(cycles = []) {
   return months;
 }
 export default function AccountDashboard() {
-  const [state, setState] = useState(() => loadAccountState());
+  const [state, setState] = useState({
+    cycles: [],
+    societies: [],
+    schemes: [],
+    claims: [],
+    recoverables: [],
+    milkData: [],
+    billingResults: {},
+    selectedCycleId: "",
+    selectedSocietyId: "",
+  });
   const [serverDashboard, setServerDashboard] = useState(null);
   const [selectedTrendMonthId, setSelectedTrendMonthId] = useState(null);
-  const selectedCycleId = state.selectedCycleId || state.cycles[0]?.id;
+  const [loading, setLoading] = useState(true);
+  const selectedCycleId = state.selectedCycleId || state.cycles[0]?.id || "";
   const currentCycle = state.cycles.find((cycle) => cycle.id === selectedCycleId) || state.cycles[0];
   
   const sortedCycles = useMemo(() => {
@@ -145,10 +158,14 @@ export default function AccountDashboard() {
   useEffect(() => {
     let alive = true;
 
-    hydrateAccountSocieties().then((next) => {
-      if (!alive) return;
-      setState(next);
-    });
+    hydrateAccountSocieties()
+      .then((next) => {
+        if (!alive) return;
+        setState(next);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
 
     return () => {
       alive = false;
@@ -216,27 +233,38 @@ export default function AccountDashboard() {
 
   const handleCycleChange = (e) => {
     const cycleId = e.target.value;
-    const next = setSelections({ cycleId });
-    setState(next);
+    setAccountSelections({ cycleId });
+    setState((current) => ({ ...current, selectedCycleId: cycleId }));
   };
 
-  const handleRunBilling = () => {
-    console.log("Run Billing clicked for cycle:", selectedCycleId);
-    // Add billing logic here
+  const handleRunBilling = async () => {
+    try {
+      const res = await runCycleBilling(selectedCycleId);
+      setState(res.state);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const handleLockCycle = () => {
-    console.log("Lock Cycle clicked for cycle:", selectedCycleId);
-    // Add lock cycle logic here
+  const handleLockCycle = async () => {
+    try {
+      const res = await lockCycleBilling(selectedCycleId);
+      setState(res.state);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const handleDisbursePay = () => {
-    console.log("Disburse Payments clicked for cycle:", selectedCycleId);
-    // Add disburse payments logic here
-  };
+  if (loading) {
+    return (
+      <div className="module-page module-page-body text-[#1F2A44]">
+        <p className="text-sm text-[#5B6B7F]">Loading accounts dashboard...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 p-6 text-[#1F2A44]">
+    <div className="module-page module-page-body text-[#1F2A44]">
       <div className="flex items-center justify-between rounded-xl border border-[#D7E4FF] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
         <h1 className="text-2xl font-semibold text-[#1E4B6B]">Accounts Dashboard</h1>
         <div className="flex items-center gap-3">
@@ -263,18 +291,12 @@ export default function AccountDashboard() {
           >
             Lock Cycle
           </button>
-          <button
-            onClick={handleDisbursePay}
-            className="rounded-lg bg-[#16a34a] px-4 py-2 text-sm font-medium text-white hover:bg-[#15803d]"
-          >
-            Disburse Payments
-          </button>
         </div>
       </div>
 
       
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="module-stat-grid">
         {dashboardCards.map((card, index) => (
           (() => {
             const displayValue = card.value;
@@ -337,11 +359,11 @@ export default function AccountDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="module-panel-grid-3">
         <section className="rounded-xl border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
           <h2 className="text-lg font-semibold text-[#1E4B6B]">Milk Type Distribution</h2>
           <div className="mt-4 flex items-center gap-4">
-            <div className="h-44 w-44">
+            <div className="h-52 w-52 min-w-[12rem] shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={dashboardMilkDistribution} dataKey="value" nameKey="name" innerRadius={46} outerRadius={70}>
@@ -349,7 +371,7 @@ export default function AccountDashboard() {
                       <Cell key={`cell-${index}`} fill={pieColors[index]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Tooltip formatter={percentTooltip} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -430,7 +452,7 @@ export default function AccountDashboard() {
                 <CartesianGrid stroke="#E6EDF7" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
+                <Tooltip formatter={litersTooltip} />
                 <Line type="monotone" dataKey="milkQty" stroke={chartColors.darkBlue} strokeWidth={2} dot={{ r: 3 }} />
                 <Line type="monotone" dataKey="payout" stroke={chartColors.lightBlue} strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>

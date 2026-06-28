@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
-import { calculateSocietyBilling, hydrateAccountSocieties, loadAccountState, markInvoiceSent } from "./engine";
+import { calculateSocietyBilling, hydrateAccountSocieties } from "./engine";
+import { fetchAccountState, markInvoiceSentLocal } from "./accountService";
 import { getMilkEntries } from "../../utils/api";
 
 export default function Invoices() {
-  const [state, setState] = useState(() => loadAccountState());
+  const [state, setState] = useState({ cycles: [], societies: [], invoiceDispatch: [], billingResults: {} });
   const [message, setMessage] = useState("");
 
   const selectedCycleId = state.selectedCycleId || state.cycles[0]?.id;
@@ -126,13 +127,13 @@ export default function Invoices() {
   };
 
   const handleSend = () => {
-    const res = markInvoiceSent(selectedCycleId, selectedSocietyId);
-    setState(res.state || loadAccountState());
-    setMessage(res.message);
+    const dispatch = markInvoiceSentLocal(selectedCycleId, selectedSocietyId);
+    setState((current) => ({ ...current, invoiceDispatch: dispatch }));
+    setMessage("Invoice sent to society.");
   };
 
   return (
-    <div className="p-6 text-[#1F2A44]">
+    <div className="module-page module-page-body text-[#1F2A44]">
       <div className="rounded-xl border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
         <h1 className="text-2xl font-semibold text-[#1E4B6B]">Invoices</h1>
         {message ? <p className="mt-3 rounded-lg bg-[#EEF4FF] px-3 py-2 text-sm text-[#1E4B6B]">{message}</p> : null}

@@ -1,6 +1,7 @@
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { addScheme, deleteScheme, loadAccountState, toggleScheme } from "./engine";
+import { useEffect, useMemo, useState } from "react";
+import { addSchemeRecord, deleteSchemeRecord, fetchAccountState, toggleSchemeRecord } from "./accountService";
+import { usePopup } from "../../shared/context/PopupContext";
 
 const SCHEME_TYPES = [
   { value: "INCENTIVE", label: "Incentive", hint: "Adds a per litre benefit" },
@@ -95,12 +96,23 @@ function InputLabel({ children }) {
 }
 
 export default function Schemes() {
-  const [state, setState] = useState(() => loadAccountState());
+  const { showConfirm } = usePopup();
+  const [state, setState] = useState({ schemes: [], societies: [] });
   const [message, setMessage] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(initialForm);
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    fetchAccountState().then((next) => {
+      if (active) setState(next);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const rows = useMemo(() => state.schemes, [state.schemes]);
   const societies = useMemo(() => state.societies || [], [state.societies]);
@@ -116,18 +128,26 @@ export default function Schemes() {
     setFormError("");
   };
 
-  const handleToggle = (schemeId) => {
-    const res = toggleScheme(schemeId);
-    setState(res.state || loadAccountState());
-    setMessage(res.message);
+  const handleToggle = async (schemeId) => {
+    try {
+      const res = await toggleSchemeRecord(schemeId);
+      setState(res.state);
+      setMessage(res.message);
+    } catch (error) {
+      setMessage(error.message || "Unable to update scheme.");
+    }
   };
 
-  const handleDelete = (scheme) => {
-    const confirmed = window.confirm(`Delete scheme "${scheme.name}"?`);
+  const handleDelete = async (scheme) => {
+    const confirmed = await showConfirm({ message: `Delete scheme "${scheme.name}"?` });
     if (!confirmed) return;
-    const res = deleteScheme(scheme.id);
-    setState(res.state || loadAccountState());
-    setMessage(res.message);
+    try {
+      const res = await deleteSchemeRecord(scheme.id);
+      setState(res.state);
+      setMessage(res.message);
+    } catch (error) {
+      setMessage(error.message || "Unable to delete scheme.");
+    }
   };
 
   const openForm = () => {
@@ -170,21 +190,25 @@ export default function Schemes() {
     setFormError("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const error = getStepError(step, form, societies);
     if (error) {
       setFormError(error);
       return;
     }
 
-    const res = addScheme(buildPayload(form));
-    setState(res.state || loadAccountState());
-    setMessage(res.message);
-    closeForm();
+    try {
+      const res = await addSchemeRecord(buildPayload(form));
+      setState(res.state);
+      setMessage(res.message);
+      closeForm();
+    } catch (error) {
+      setMessage(error.message || "Unable to save scheme.");
+    }
   };
 
   return (
-    <div className="p-6 text-[#1F2A44]">
+    <div className="module-page module-page-body text-[#1F2A44]">
       <div className="rounded-xl border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

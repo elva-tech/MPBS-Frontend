@@ -1,4 +1,4 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 
 const MilkEntrySchema = new mongoose.Schema(
   {
@@ -17,5 +17,6 @@ const MilkEntrySchema = new mongoose.Schema(
 );
 
 MilkEntrySchema.index({ societyId: 1, date: 1, session: 1 });
+MilkEntrySchema.index({ societyId: 1, date: 1, session: 1, milkType: 1 }, { unique: true });
 
 export const MilkEntry = mongoose.model("MilkEntry", MilkEntrySchema);

@@ -1,31 +1,56 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePopup } from "../../shared/context/PopupContext";
 import {
   calculateTotals,
-  getActiveShipment,
+  fetchActiveShipment,
+  fetchShipments,
+  finalizeShipmentDecision,
   getShipmentStatusLabel,
   isShipmentGoodQuality,
+  patchShipment,
   QUANTITY_TOLERANCE_PERCENT,
   setActiveShipmentId,
-  updateShipment,
 } from "./state";
 
 export default function DairyTankerVerification() {
   const navigate = useNavigate();
-  const [shipment, setShipment] = useState(() => getActiveShipment());
-  const [rows, setRows] = useState(() => shipment?.stops || []);
-  const [qualityRows, setQualityRows] = useState(() => shipment?.quality || []);
+  const { showConfirm } = usePopup();
+  const [shipment, setShipment] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [qualityRows, setQualityRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const shipments = await fetchShipments();
+        const activeShipment = await fetchActiveShipment(shipments);
+        if (!active || !activeShipment) {
+          setShipment(null);
+          return;
+        }
+        if (activeShipment.status === "pending") {
+          const updated = await patchShipment(activeShipment.id, { status: "in_verification" });
+          setShipment(updated || { ...activeShipment, status: "in_verification" });
+        } else {
+          setShipment(activeShipment);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     setRows(shipment?.stops || []);
     setQualityRows(shipment?.quality || []);
   }, [shipment]);
-
-  useEffect(() => {
-    if (!shipment?.id || shipment.status !== "pending") return;
-    const updated = updateShipment(shipment.id, (current) => ({ ...current, status: "in_verification" }));
-    setShipment(updated);
-  }, [shipment?.id, shipment?.status]);
 
   const totals = useMemo(() => calculateTotals(rows), [rows]);
   const toleranceLimit = useMemo(
@@ -63,8 +88,8 @@ export default function DairyTankerVerification() {
   const qualityIssues = useMemo(() => {
     const fatRow = qualityRows.find((item) => String(item.parameter || "").toLowerCase() === "fat");
     const snfRow = qualityRows.find((item) => String(item.parameter || "").toLowerCase() === "snf");
-    const fat = Number(fatRow?.dairyTest);
-    const snf = Number(snfRow?.dairyTest);
+    const fat = Number(String(fatRow?.dairyTest || "").replace(/°c/i, ""));
+    const snf = Number(String(snfRow?.dairyTest || "").replace(/°c/i, ""));
     const issues = [];
     if (Number.isFinite(fat) && fat < 3.5) issues.push("Low Fat");
     if (Number.isFinite(snf) && snf < 8.5) issues.push("Low SNF");
@@ -73,57 +98,61 @@ export default function DairyTankerVerification() {
 
   const shortageBeyondTolerance = totals.shortage > toleranceLimit;
 
-  const saveStatus = (status) => {
-    if (!shipment?.id) return;
-    const updated = updateShipment(shipment.id, (current) => ({
-      ...current,
+  const persistDraft = async (status) => {
+    if (!shipment?.id) return null;
+    const updated = await patchShipment(shipment.id, {
       stops: rows,
       quality: qualityRows,
       status,
-      discrepancy:
-        status === "approved"
-          ? null
-          : {
-              type: shortageBeyondTolerance ? "Quantity Loss" : qualityIssues[0] ? "Low Fat / SNF" : "Spillage",
-              remarks:
-                shortageBeyondTolerance || qualityIssues.length
-                  ? "Difference detected during dairy verification."
-                  : (current.discrepancy?.remarks || ""),
-              photoName: current.discrepancy?.photoName || "",
-              penaltyRate: current.discrepancy?.penaltyRate || 35,
-              deduction: current.discrepancy?.deduction || 0,
-            },
-    }));
-    setShipment(updated);
-    setActiveShipmentId(updated?.id || shipment.id);
+    });
+    if (updated) {
+      setShipment(updated);
+      setActiveShipmentId(updated.id);
+    }
+    return updated;
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     const isGood = isShipmentGoodQuality({ ...shipment, quality: qualityRows });
     if (isGood && !shortageBeyondTolerance) {
-      const confirmed = window.confirm("Confirm tanker approval and send this batch to Accounts?");
+      const confirmed = await showConfirm({
+        message: "Confirm tanker approval and send this batch to Accounts?",
+      });
       if (!confirmed) return;
-      saveStatus("approved");
+      const finalized = await finalizeShipmentDecision(shipment.id, "approved");
+      if (finalized) {
+        setShipment(finalized);
+        setActiveShipmentId(finalized.id);
+      }
       return;
     }
-    const confirmed = window.confirm(
-      "Quantity or quality difference detected. Continue to discrepancy screen for penalty/reject decision?"
-    );
+    const confirmed = await showConfirm({
+      message: "Quantity or quality difference detected. Continue to discrepancy screen for penalty/reject decision?",
+    });
     if (!confirmed) return;
-    saveStatus("penalty");
+    await persistDraft("in_verification");
     navigate("/dairy/milk-receipt");
   };
 
-  const handleReject = () => {
-    const confirmed = window.confirm("Confirm tanker batch rejection?");
+  const handleReject = async () => {
+    const confirmed = await showConfirm({ message: "Confirm tanker batch rejection?" });
     if (!confirmed) return;
-    saveStatus("rejected");
+    await persistDraft("in_verification");
     navigate("/dairy/milk-receipt");
   };
+
+  if (loading) {
+    return (
+      <div className="module-page module-page-body text-[#1F2A44]">
+        <h1 className="text-2xl font-semibold text-[#1E4B6B]">Tanker Verification</h1>
+        <p className="mt-1 text-sm text-[#5B6B7F]">Loading tanker data...</p>
+      </div>
+    );
+  }
 
   if (!shipment) {
     return (
-      <div className="p-6 text-[#1F2A44]">
+      <div className="module-page module-page-body text-[#1F2A44]">
         <h1 className="text-2xl font-semibold text-[#1E4B6B]">Tanker Verification</h1>
         <p className="mt-1 text-sm text-[#5B6B7F]">No tanker route data found.</p>
       </div>
@@ -131,7 +160,7 @@ export default function DairyTankerVerification() {
   }
 
   return (
-    <div className="p-6 text-[#1F2A44]">
+    <div className="module-page module-page-body text-[#1F2A44]">
       <h1 className="text-2xl font-semibold text-[#1E4B6B]">Tanker Verification</h1>
       <p className="mt-1 text-sm text-[#5B6B7F]">Measure quantity and quality before approval.</p>
 
@@ -167,23 +196,23 @@ export default function DairyTankerVerification() {
               {rows.map((row, index) => {
                 const shortage = Math.max(Number(row.expected) - Number(row.received), 0);
                 return (
-                <tr key={row.bmc} className="border-t border-[#E6EDF7]">
-                  <td className="px-4 py-3">{row.bmc}</td>
-                  <td className="px-4 py-3">{row.expected} L</td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.received}
-                      onChange={(event) => handleReceivedChange(index, event.target.value)}
-                      className="w-24 rounded border border-[#D7E4FF] bg-[#F7FAFF] px-2 py-1 text-sm"
-                    />
-                    <span className="ml-1">L</span>
-                  </td>
-                  <td className={`px-4 py-3 ${shortage > 0 ? "text-[#D84343] font-semibold" : ""}`}>
-                    {shortage} L
-                  </td>
-                </tr>
+                  <tr key={row.bmc} className="border-t border-[#E6EDF7]">
+                    <td className="px-4 py-3">{row.bmc}</td>
+                    <td className="px-4 py-3">{row.expected} L</td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.received}
+                        onChange={(event) => handleReceivedChange(index, event.target.value)}
+                        className="w-24 rounded border border-[#D7E4FF] bg-[#F7FAFF] px-2 py-1 text-sm"
+                      />
+                      <span className="ml-1">L</span>
+                    </td>
+                    <td className={`px-4 py-3 ${shortage > 0 ? "text-[#D84343] font-semibold" : ""}`}>
+                      {shortage} L
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>

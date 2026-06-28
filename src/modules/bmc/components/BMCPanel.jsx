@@ -2,7 +2,7 @@ import { calcEntry, calcSession, genReport, isRowValid } from "../utils/engine";
 
 const MILK_TYPES = ["Cow", "Buffalo"];
 
-function BmcRow({ row, idx, onChange, selectedTypes }) {
+function BmcRow({ row, idx, onChange, selectedTypes, readOnly = false }) {
   const f = parseFloat(row.fat);
   const s = parseFloat(row.snf);
   const q = parseFloat(row.qty);
@@ -14,7 +14,12 @@ function BmcRow({ row, idx, onChange, selectedTypes }) {
   return (
     <tr>
       <td>
-        <select className="bmc-type-select" value={row.type} onChange={(e) => onChange(idx, "type", e.target.value)}>
+        <select
+          className="bmc-type-select"
+          value={row.type}
+          onChange={(e) => onChange(idx, "type", e.target.value)}
+          disabled={readOnly}
+        >
           <option value="">Select Type</option>
           {availableTypes.map((type) => (
             <option key={type} value={type}>
@@ -32,6 +37,7 @@ function BmcRow({ row, idx, onChange, selectedTypes }) {
           placeholder="0.0"
           value={row.fat}
           onChange={(e) => onChange(idx, "fat", e.target.value)}
+          disabled={readOnly}
         />
       </td>
       <td>
@@ -43,6 +49,7 @@ function BmcRow({ row, idx, onChange, selectedTypes }) {
           placeholder="0.0"
           value={row.snf}
           onChange={(e) => onChange(idx, "snf", e.target.value)}
+          disabled={readOnly}
         />
       </td>
       <td>
@@ -54,6 +61,7 @@ function BmcRow({ row, idx, onChange, selectedTypes }) {
           placeholder="000.00"
           value={row.qty}
           onChange={(e) => onChange(idx, "qty", e.target.value)}
+          disabled={readOnly}
         />
       </td>
       <td>
@@ -66,7 +74,7 @@ function BmcRow({ row, idx, onChange, selectedTypes }) {
   );
 }
 
-export default function BMCPanel({ bmcRows, onChange, societyRows, societyName }) {
+export default function BMCPanel({ bmcRows, onChange, societyRows, societyName, readOnly = false }) {
   const selectedTypes = bmcRows.map((row) => row.type).filter(Boolean);
   const validBmc = bmcRows
     .filter(isRowValid)
@@ -110,7 +118,7 @@ export default function BMCPanel({ bmcRows, onChange, societyRows, societyName }
           </thead>
           <tbody>
             {bmcRows.map((row, idx) => (
-              <BmcRow key={idx} row={row} idx={idx} onChange={onChange} selectedTypes={selectedTypes} />
+              <BmcRow key={idx} row={row} idx={idx} onChange={onChange} selectedTypes={selectedTypes} readOnly={readOnly} />
             ))}
           </tbody>
         </table>

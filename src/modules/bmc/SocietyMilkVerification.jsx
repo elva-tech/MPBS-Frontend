@@ -1,12 +1,13 @@
-﻿import { Fragment, useCallback, useEffect, useState } from "react";
-import { fetchSocieties, getMilkEntries, createVerification, listNotificationsForRole } from "../../utils/api";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { fetchSocieties, getMilkSessionStatus, createVerification, listNotificationsForRole, listVerifications } from "../../utils/api";
 import "./SocietyMilkVerification.css";
 import EntryTable from "./components/EntryTable";
 import NotificationBell from "./components/NotificationBell";
 import BMCPanel from "./components/BMCPanel";
 import SaveModal from "./components/SaveModal";
+import DemoUnlockToggle from "../../shared/components/DemoUnlockToggle";
+import { isDemoUnlockEnabled } from "../../utils/demoMode";
 import {
-  INITIAL_NOTIFICATIONS,
   BMC_USER,
   calcEntry,
   calcSession,
@@ -15,6 +16,83 @@ import {
   isRowValid,
   emptyRow,
 } from "./utils/engine";
+
+function todayISO() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function currentSessionCode() {
+  return new Date().getHours() < 12 ? "M" : "E";
+}
+
+function currentSessionLabel() {
+  return currentSessionCode() === "M" ? "Morning" : "Evening";
+}
+
+function dedupeMilkEntriesByType(entries = []) {
+  const map = new Map();
+  for (const entry of entries) {
+    const key = String(entry.milkType || entry.type || "").trim().toLowerCase();
+    if (!key) continue;
+    const createdAt = entry.createdAt ? new Date(entry.createdAt).getTime() : 0;
+    const prev = map.get(key);
+    const prevAt = prev?.createdAt ? new Date(prev.createdAt).getTime() : 0;
+    if (!prev || createdAt >= prevAt) {
+      map.set(key, entry);
+    }
+  }
+  return Array.from(map.values());
+}
+
+function dedupeRowsByType(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    const type = String(row.type || row.milkType || "").trim();
+    if (!type) continue;
+    map.set(type.toLowerCase(), row);
+  }
+  return Array.from(map.values());
+}
+
+function bmcEntriesToRows(entries = []) {
+  const rows = dedupeRowsByType(
+    entries.map((e) => ({
+      type: e.type || e.milkType,
+      fat: e.fat,
+      snf: e.snf,
+      qty: e.qty,
+    }))
+  );
+  while (rows.length < 2) rows.push(emptyRow());
+  return rows;
+}
+
+function apiVerificationToRecord(apiRecord, societyName) {
+  const rawEntries = dedupeRowsByType(
+    (apiRecord.entries || []).map((e) => ({
+      type: e.type || e.milkType,
+      fat: e.fat,
+      snf: e.snf,
+      qty: e.qty,
+    }))
+  );
+  const session = calcSession(rawEntries);
+  const bmcEntries = apiRecord.bmcEntries?.length
+    ? dedupeRowsByType(apiRecord.bmcEntries)
+    : null;
+  return {
+    society: societyName,
+    savedAt: new Date(apiRecord.updatedAt || apiRecord.createdAt).toLocaleString("en-IN"),
+    savedBy: apiRecord.savedBy || "",
+    verifyChoice:
+      apiRecord.verifyChoice === "YES" ? "YES ? Values Match" : "NO ? BMC Values Entered",
+    entries: session.entries,
+    totalQty: session.totalQty,
+    totalAmt: session.totalAmtFmt,
+    bmcEntries,
+    comparisonStatus: apiRecord.comparisonStatus,
+  };
+}
 
 function useClock() {
   const [time, setTime] = useState("");
@@ -75,10 +153,14 @@ export default function MilkVerification() {
 
   const [saveModal, setSaveModal] = useState(null);
   const [savedRecord, setSavedRecord] = useState(null);
+  const [verificationLocked, setVerificationLocked] = useState(false);
+  const [societySessionSaved, setSocietySessionSaved] = useState(false);
+  const [societySessionEditing, setSocietySessionEditing] = useState(false);
+  const [demoUnlock, setDemoUnlock] = useState(isDemoUnlockEnabled());
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
 
-  const [notifs, setNotifs] = useState(INITIAL_NOTIFICATIONS);
+  const [notifs, setNotifs] = useState([]);
 
   const readKey = "bmc_notif_read_ids";
   const dismissedKey = "bmc_notif_dismissed_ids";
@@ -154,38 +236,57 @@ export default function MilkVerification() {
     };
   }, []);
 
-  const handleSocietyChange = async (e) => {
-    const name = e.target.value;
-    if (!name) {
-      setSelectedSoc(null);
-      setSavedRecord(null);
-      return;
-    }
-    const soc = societies.find((s) => s.name === name);
-    setSelectedSoc({ ...soc });
+  const effectiveVerificationLocked = verificationLocked && !demoUnlock;
 
-    try {
-      const all = JSON.parse(localStorage.getItem("milkVerifications") || "{}");
-      setSavedRecord(all[soc.name] || null);
-    } catch {
-      setSavedRecord(null);
-    }
+  const loadSocietySession = async (soc) => {
+    if (!soc) return;
+
+    const today = todayISO();
+    const sessionCode = currentSessionCode();
+    let existingVerification = null;
 
     setVerifyChoice(null);
     setSaveError("");
     setSaveSuccess("");
+    setVerificationLocked(false);
+    setSocietySessionSaved(false);
+    setSocietySessionEditing(false);
+    setSavedRecord(null);
 
-    // Fetch milk entries for the selected society
     try {
-      const today = new Date().toISOString().split('T')[0];
-      
-      const response = await getMilkEntries({
+      const verificationRes = await listVerifications({
         societyId: soc.societyId,
         date: today,
+        session: sessionCode,
       });
+      existingVerification = verificationRes?.data?.[0];
+      if (existingVerification) {
+        const record = apiVerificationToRecord(existingVerification, soc.name);
+        setSavedRecord(record);
+        setVerificationLocked(true);
+        setVerifyChoice(existingVerification.verifyChoice === "YES" ? "yes" : "no");
+        if (existingVerification.bmcEntries?.length) {
+          setBmcRows(bmcEntriesToRows(existingVerification.bmcEntries));
+        }
+        setSelectedSoc((prev) => (prev ? { ...prev, status: "verified" } : prev));
+      }
+    } catch (error) {
+      console.error("Error loading verification:", error);
+    }
 
-      const milkData = response?.data?.milkEntries || [];
-      
+    try {
+      const statusRes = await getMilkSessionStatus({
+        societyId: soc.societyId,
+        date: today,
+        session: sessionCode,
+      });
+      const payload = statusRes?.data || {};
+      const milkData = dedupeMilkEntriesByType(payload.entries || []);
+      const hasEntries = milkData.length > 0;
+      const locked = Boolean(payload.locked);
+      setSocietySessionSaved(hasEntries && locked);
+      setSocietySessionEditing(hasEntries && !locked);
+
       const newRows = milkData.map((entry) => ({
         type: entry.milkType,
         milkType: entry.milkType,
@@ -194,16 +295,42 @@ export default function MilkVerification() {
         qty: entry.qty,
         rate: entry.rate,
         amount: entry.amount,
+        createdAt: entry.createdAt,
       }));
       setRows(newRows.length > 0 ? newRows : [emptyRow(), emptyRow()]);
-      setBmcRows([emptyRow(), emptyRow()]);
+      if (!existingVerification) {
+        setBmcRows([emptyRow(), emptyRow()]);
+      }
     } catch (error) {
-      console.error("Error loading milk entries:", error);
+      console.error("Error loading milk session:", error);
       setSaveError("Failed to load milk entries: " + error.message);
       setRows([emptyRow(), emptyRow()]);
       setBmcRows([emptyRow(), emptyRow()]);
     }
   };
+
+  const handleSocietyChange = async (e) => {
+    const name = e.target.value;
+    if (!name) {
+      setSelectedSoc(null);
+      setSavedRecord(null);
+      setVerificationLocked(false);
+      setSocietySessionSaved(false);
+      setSocietySessionEditing(false);
+      return;
+    }
+    const soc = societies.find((s) => s.name === name);
+    setSelectedSoc({ ...soc });
+    await loadSocietySession(soc);
+  };
+
+  useEffect(() => {
+    if (!selectedSoc?.societyId) return;
+
+    const refresh = () => loadSocietySession(selectedSoc);
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [selectedSoc, demoUnlock]);
 
   const handleRowChange = useCallback((idx, field, val) => {
     setRows((prev) => {
@@ -238,18 +365,28 @@ export default function MilkVerification() {
   }, []);
 
   const handleVerify = (choice) => {
+    if (effectiveVerificationLocked) return;
     setVerifyChoice(choice);
     setSaveSuccess("");
     if (choice === "yes") setBmcRows([emptyRow(), emptyRow()]);
   };
 
   const handleSave = async () => {
-    const validRows = rows.filter(isRowValid).map((r) => ({
-      type: r.type,
-      fat: parseFloat(r.fat),
-      snf: parseFloat(r.snf),
-      qty: parseFloat(r.qty),
-    }));
+    if (effectiveVerificationLocked) {
+      setSaveError("Verification already saved for this session.");
+      setSaveSuccess("");
+      setTimeout(() => setSaveError(""), 4000);
+      return;
+    }
+
+    const validRows = dedupeRowsByType(
+      rows.filter(isRowValid).map((r) => ({
+        type: r.type,
+        fat: parseFloat(r.fat),
+        snf: parseFloat(r.snf),
+        qty: parseFloat(r.qty),
+      }))
+    );
 
     if (!validRows.length) {
       setSaveError("Please fill in at least one complete row before saving.");
@@ -306,32 +443,37 @@ export default function MilkVerification() {
     };
 
     try {
-      const all = JSON.parse(localStorage.getItem("milkVerifications") || "{}");
-      all[selectedSoc.name] = record;
-      localStorage.setItem("milkVerifications", JSON.stringify(all));
-    } catch {
-      // ignore storage errors
-    }
-
-    try {
-      const today = new Date().toISOString().split("T")[0];
-      const sessionLabel = new Date().getHours() < 12 ? "M" : "E";
+      const today = todayISO();
+      const sessionLabel = currentSessionCode();
       await createVerification({
         societyId: selectedSoc.societyId,
         bmcId: localStorage.getItem("bmc_id") || bmcUserName,
         date: today,
         session: sessionLabel,
         verifyChoice: verifyChoice === "yes" ? "YES" : "NO",
-        entries: session.entries,
+        entries: session.entries.map((e) => ({
+          type: e.type,
+          fat: e.fat,
+          snf: e.snf,
+          qty: e.qty,
+        })),
         bmcEntries,
         comparisonStatus,
         savedBy: bmcUserName,
       });
     } catch (err) {
+      if (/already saved/i.test(err.message || "")) {
+        setVerificationLocked(true);
+      }
       setSaveError("Failed to save verification: " + err.message);
       setSaveSuccess("");
       setTimeout(() => setSaveError(""), 4000);
       return;
+    }
+
+    setVerificationLocked(true);
+    if (bmcEntries?.length) {
+      setBmcRows(bmcEntriesToRows(bmcEntries));
     }
 
     setSocieties((prev) =>
@@ -397,6 +539,28 @@ export default function MilkVerification() {
   const statusClass = selectedSoc?.status === "verified" ? "verified" : "not-verified";
   const statusText = selectedSoc?.status === "verified" ? "Verified" : "Not Verified";
 
+  const displayedSavedEntries = useMemo(() => {
+    if (!savedRecord?.entries?.length) return [];
+    const seen = new Set();
+    return savedRecord.entries.filter((entry) => {
+      const key = String(entry.type || "").trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [savedRecord]);
+
+  const displayedBmcEntries = useMemo(() => {
+    if (!savedRecord?.bmcEntries?.length) return [];
+    const seen = new Set();
+    return savedRecord.bmcEntries.filter((entry) => {
+      const key = String(entry.type || "").trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [savedRecord]);
+
   return (
     <div className="bmc-verify">
       <header className="topbar">
@@ -405,6 +569,7 @@ export default function MilkVerification() {
           <span className="date-badge">{dateStr}</span>
         </div>
         <div className="topbar-right">
+          <DemoUnlockToggle onChange={setDemoUnlock} />
           <div className="live-time">
             <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
@@ -460,6 +625,29 @@ export default function MilkVerification() {
                 <span className="card-title-dot" />
                 Society Entry - {selectedSoc.name}
               </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#1E4B6B]">
+                <span className="rounded-full border border-[#CFE0FF] bg-[#EEF4FF] px-3 py-1">
+                  Active Session: {currentSessionLabel()}
+                </span>
+                {societySessionSaved ? (
+                  <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-green-800">
+                    Society saved current session
+                  </span>
+                ) : societySessionEditing ? (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-900">
+                    Society editing after unlock
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-900">
+                    Society has not saved this session yet
+                  </span>
+                )}
+                {effectiveVerificationLocked && (
+                  <span className="rounded-full border border-[#1E4B6B] bg-[#1E4B6B] px-3 py-1 text-white">
+                    Verification locked
+                  </span>
+                )}
+              </div>
             </div>
 
               <EntryTable
@@ -474,14 +662,14 @@ export default function MilkVerification() {
               <div className="verify-label">Do physical values match society entry?</div>
               <div className="verify-options">
                 <div
-                  className={`verify-option${verifyChoice === "yes" ? " sel-yes" : ""}`}
+                  className={`verify-option${verifyChoice === "yes" ? " sel-yes" : ""}${effectiveVerificationLocked ? " opacity-60 pointer-events-none" : ""}`}
                   onClick={() => handleVerify("yes")}
                 >
                   <div className="radio-circle">{verifyChoice === "yes" && <div className="radio-filled" />}</div>
                   YES - Values Match
                 </div>
                 <div
-                  className={`verify-option${verifyChoice === "no" ? " sel-no" : ""}`}
+                  className={`verify-option${verifyChoice === "no" ? " sel-no" : ""}${effectiveVerificationLocked ? " opacity-60 pointer-events-none" : ""}`}
                   onClick={() => handleVerify("no")}
                 >
                   <div className="radio-circle">{verifyChoice === "no" && <div className="radio-filled" />}</div>
@@ -491,18 +679,26 @@ export default function MilkVerification() {
             </div>
 
             {verifyChoice === "no" && (
-              <BMCPanel bmcRows={bmcRows} onChange={handleBmcChange} societyRows={rows} societyName={selectedSoc.name} />
+              <BMCPanel
+                bmcRows={bmcRows}
+                onChange={handleBmcChange}
+                societyRows={rows}
+                societyName={selectedSoc.name}
+                readOnly={effectiveVerificationLocked}
+              />
             )}
 
             <div className="save-row">
               {saveError && <span className="save-error">{saveError}</span>}
               {saveSuccess && <span className="save-success">{saveSuccess}</span>}
-              <button className="save-btn" onClick={handleSave}>
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-                Save Verification
-              </button>
+              {!effectiveVerificationLocked && (
+                <button className="save-btn" onClick={handleSave}>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                  Save Verification
+                </button>
+              )}
             </div>
 
             {savedRecord && (
@@ -534,7 +730,7 @@ export default function MilkVerification() {
                     </tr>
                   </thead>
                   <tbody>
-                    {savedRecord.entries.map((entry, idx) => (
+                    {displayedSavedEntries.map((entry, idx) => (
                       <tr key={"soc-" + idx}>
                         <td>{entry.type}</td>
                         <td>{entry.fat}</td>
@@ -547,7 +743,7 @@ export default function MilkVerification() {
                   </tbody>
                 </table>
 
-                {savedRecord.bmcEntries?.length > 0 && (
+                {displayedBmcEntries.length > 0 && (
                   <>
                     <div className="saved-section-title">BMC Actual Values</div>
                     <table className="society-main-table saved-table">
@@ -562,7 +758,7 @@ export default function MilkVerification() {
                         </tr>
                       </thead>
                       <tbody>
-                        {savedRecord.bmcEntries.map((entry, idx) => {
+                        {displayedBmcEntries.map((entry, idx) => {
                           const bmcCalc = calcEntry(entry.type, entry.fat, entry.snf, entry.qty);
                           return (
                             <tr key={"bmc-" + idx}>
@@ -592,10 +788,10 @@ export default function MilkVerification() {
                         </tr>
                       </thead>
                       <tbody>
-                        {savedRecord.entries.map((socEntry, idx) => {
+                        {displayedSavedEntries.map((socEntry, idx) => {
                           const bmcEntry =
-                            savedRecord.bmcEntries.find((entry) => entry.type === socEntry.type) ||
-                            savedRecord.bmcEntries[idx];
+                            displayedBmcEntries.find((entry) => entry.type === socEntry.type) ||
+                            displayedBmcEntries[idx];
 
                           if (!bmcEntry) return null;
 

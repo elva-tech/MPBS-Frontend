@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { getDairyDashboard } from "../../utils/api";
+import { percentTooltip } from "../../shared/charts/tooltips";
 
 function Card({ label, value }) {
   const toneMap = {
@@ -12,26 +13,38 @@ function Card({ label, value }) {
   const tone = toneMap[label] || "border-[#D7E4FF] bg-white";
 
   return (
-    <div className={`rounded-xl border p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)] ${tone}`}>
+    <div className={`module-stat-card rounded-xl border shadow-[0_4px_12px_rgba(15,41,74,0.08)] ${tone}`}>
       <p className="text-[13px] font-medium text-[#5B6B7F]">{label}</p>
-      <p className="mt-2 text-[30px] font-semibold leading-none text-[#1E4B6B]">{value}</p>
+      <p className="mt-2 text-[26px] font-semibold leading-none text-[#1E4B6B]">{value}</p>
     </div>
   );
 }
 
 function Donut({ data, colors = ["#1E4B6B", "#9DB5CC"] }) {
   return (
-    <div className="h-40 w-40">
+    <div className="module-dashboard-donut">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Tooltip formatter={(value) => `${value}%`} />
-          <Pie data={data} dataKey="value" nameKey="label" innerRadius={45} outerRadius={70} stroke="none">
+          <Tooltip formatter={percentTooltip} />
+          <Pie data={data} dataKey="value" nameKey="label" innerRadius="48%" outerRadius="72%" stroke="none">
             {data.map((_, index) => (
               <Cell key={`slice-${index}`} fill={colors[index] || colors[0]} />
             ))}
           </Pie>
         </PieChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ChartLegend({ items }) {
+  return (
+    <div className="min-w-[140px] space-y-2 text-sm text-[#334155]">
+      {items.map((item) => (
+        <p key={item.label}>
+          {item.label} <span className="font-semibold text-[#1E4B6B]">{item.value}%</span>
+        </p>
+      ))}
     </div>
   );
 }
@@ -132,15 +145,17 @@ export default function DairyDashboard() {
   const maxDistrictValue = Math.max(...districtProcurement.map((item) => item.liters), 1);
 
   return (
-    <div className="p-6 text-[#1F2A44]">
-      <h1 className="text-2xl font-semibold text-[#1E4B6B]">Dairy Dashboard</h1>
-      <p className="mt-1 text-sm text-[#5B6B7F]">Operational overview for the current shift.</p>
+    <div className="module-page text-[#1F2A44]">
+      <div>
+        <h1 className="text-2xl font-semibold text-[#1E4B6B]">Dairy Dashboard</h1>
+        <p className="mt-1 text-sm text-[#5B6B7F]">Operational overview for the current shift.</p>
+      </div>
 
       {error ? (
-        <div className="mt-4 rounded-lg border border-[#F3C4C4] bg-[#FFF5F5] px-4 py-3 text-sm text-[#A12626]">{error}</div>
+        <div className="rounded-lg border border-[#F3C4C4] bg-[#FFF5F5] px-4 py-3 text-sm text-[#A12626]">{error}</div>
       ) : null}
 
-      <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)] md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)] md:grid-cols-3">
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-[#5B6B7F]">Shift</label>
           <select
@@ -178,39 +193,36 @@ export default function DairyDashboard() {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="module-stat-grid">
         {dashboardCards.map((item) => (
           <Card key={item.label} label={item.label} value={item.value} />
         ))}
       </div>
 
-      {loading ? <p className="mt-4 text-sm text-[#5B6B7F]">Loading dashboard data...</p> : null}
+      {loading ? <p className="text-sm text-[#5B6B7F]">Loading dashboard data...</p> : null}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <section className="rounded-xl border border-[#D7E4FF] bg-white p-5 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
-          <h2 className="text-lg font-semibold text-[#1E4B6B]">Milk Type Distribution</h2>
-          <div className="mt-4 flex items-center gap-5">
+      <div className="module-panel-grid-3">
+        <section className="module-dashboard-panel">
+          <h2 className="text-base font-semibold text-[#1E4B6B]">Milk Type Distribution</h2>
+          <div className="module-dashboard-panel-chart-row">
             <Donut data={milkTypeDistribution} colors={["#1E4B6B", "#9DB5CC"]} />
-            <div className="space-y-2 text-sm text-[#334155]">
-              {milkTypeDistribution.map((item) => (
-                <p key={item.label}>
-                  {item.label} <span className="font-semibold">{item.value}%</span>
-                </p>
-              ))}
-            </div>
+            <ChartLegend items={milkTypeDistribution} />
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#D7E4FF] bg-white p-5 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
-          <h2 className="text-lg font-semibold text-[#1E4B6B]">District Procurement</h2>
-          <div className="mt-4 space-y-3">
+        <section className="module-dashboard-panel">
+          <h2 className="text-base font-semibold text-[#1E4B6B]">District Procurement</h2>
+          <div className="mt-3 space-y-2.5">
+            {districtProcurement.length === 0 ? (
+              <p className="text-sm text-[#5B6B7F]">No procurement data for this date.</p>
+            ) : null}
             {districtProcurement.map((item) => {
               const width = (item.liters / maxDistrictValue) * 100;
               return (
                 <div key={item.district}>
                   <div className="mb-1 flex items-center justify-between text-sm text-[#334155]">
                     <span>{item.district}</span>
-                    <span>{item.liters.toLocaleString()} L</span>
+                    <span className="font-medium">{item.liters.toLocaleString()} L</span>
                   </div>
                   <div className="h-2 rounded-full bg-[#E6EDF7]">
                     <div className="h-2 rounded-full bg-[#2F7FA4]" style={{ width: `${width}%` }} />
@@ -221,17 +233,11 @@ export default function DairyDashboard() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#D7E4FF] bg-white p-5 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
-          <h2 className="text-lg font-semibold text-[#1E4B6B]">Quality Status</h2>
-          <div className="mt-4 flex items-center gap-5">
+        <section className="module-dashboard-panel">
+          <h2 className="text-base font-semibold text-[#1E4B6B]">Quality Status</h2>
+          <div className="module-dashboard-panel-chart-row">
             <Donut data={qualityStatus} colors={["#1E4B6B", "#9DB5CC"]} />
-            <div className="space-y-2 text-sm text-[#334155]">
-              {qualityStatus.map((item) => (
-                <p key={item.label}>
-                  {item.label} <span className="font-semibold">{item.value}%</span>
-                </p>
-              ))}
-            </div>
+            <ChartLegend items={qualityStatus} />
           </div>
         </section>
       </div>

@@ -1,13 +1,11 @@
-﻿import express from "express";
+import express from "express";
 import { authRequired, requireRole } from "../middleware/auth.js";
 import { createVerification, listVerifications } from "../controllers/verificationController.js";
 
 const router = express.Router();
 
-router.use(authRequired, requireRole(["Admin","BMC"]))
-
-router.get("/", listVerifications);
-router.post("/", createVerification);
+router.get("/", authRequired, requireRole(["Admin", "BMC", "Audit", "Auditor"]), listVerifications);
+router.post("/", authRequired, requireRole(["Admin", "BMC"]), createVerification);
 
 export default router;
 

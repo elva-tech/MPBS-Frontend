@@ -1,4 +1,7 @@
-﻿const rawApiBase = (import.meta.env.VITE_API_BASE || "").trim();
+import { getModuleFromPath, getModuleToken } from "./authSession.js";
+import { isDemoUnlockEnabled } from "./demoMode.js";
+
+const rawApiBase = (import.meta.env.VITE_API_BASE || "").trim();
 const API_BASE = (rawApiBase || "http://localhost:4000").replace(/\/+$/, "");
 
 function backendUnavailableMessage() {
@@ -7,20 +10,8 @@ function backendUnavailableMessage() {
 
 function getToken() {
   const pathname = window.location?.pathname || "";
-
-  if (pathname.startsWith("/admin")) {
-    return localStorage.getItem("admin_token") || localStorage.getItem("auth_token") || "";
-  }
-
-  if (pathname.startsWith("/bmc")) {
-    return localStorage.getItem("bmc_token") || localStorage.getItem("auth_token") || "";
-  }
-
-  if (pathname.startsWith("/procurement")) {
-    return localStorage.getItem("procurement_token") || localStorage.getItem("auth_token") || "";
-  }
-
-  return localStorage.getItem("society_token") || localStorage.getItem("auth_token") || "";
+  const module = getModuleFromPath(pathname);
+  return getModuleToken(module) || localStorage.getItem("auth_token") || "";
 }
 
 function getUploadToken() {
@@ -40,7 +31,8 @@ async function sleep(ms) {
 }
 
 async function request(path, options = {}) {
-  const token = getToken();
+  const { skipAuth = false, ...fetchOptions } = options;
+  const token = skipAuth ? "" : getToken();
   const maxRetries = 3;
   const retryDelay = 1000;
   
@@ -50,9 +42,10 @@ async function request(path, options = {}) {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(options.headers || {}),
+          ...(isDemoUnlockEnabled() ? { "X-Demo-Unlock": "1" } : {}),
+          ...(fetchOptions.headers || {}),
         },
-        ...options,
+        ...fetchOptions,
       });
 
       let payload = null;
@@ -64,26 +57,34 @@ async function request(path, options = {}) {
 
       if (!res.ok) {
         let message = payload?.message || `Request failed (${res.status})`;
-        
+        if (res.status === 429) {
+          message = payload?.message || "Too many requests. Please wait a moment and try again.";
+        }
+
         // Add validation details if present
         if (payload?.issues && Array.isArray(payload.issues)) {
-          const details = payload.issues.map(issue => 
-            `${issue.path.join('.')}: ${issue.message}`
-          ).join('; ');
+          const details = payload.issues.map(issue =>
+            `${issue.path.join(".")}: ${issue.message}`
+          ).join("; ");
           message += ` - ${details}`;
         }
-        
-        throw new Error(message);
+
+        const apiError = new Error(message);
+        apiError.status = res.status;
+        throw apiError;
       }
 
       return payload;
     } catch (error) {
       const isLastAttempt = attempt === maxRetries;
-      const isNetworkError = error.message.includes('fetch') || error.name === 'TypeError';
-      
-      if (isNetworkError && !isLastAttempt) {
-        console.warn(`API request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`);
-        await sleep(retryDelay * (attempt + 1));
+      const isNetworkError =
+        error.message.includes("fetch") ||
+        error.name === "TypeError" ||
+        error.message.includes("Cannot reach backend");
+      const isRetryableStatus = error.status === 429 || error.status >= 500;
+
+      if ((isNetworkError || isRetryableStatus) && !isLastAttempt) {
+        await sleep(retryDelay * (attempt + 1) * (isRetryableStatus ? 2 : 1));
         continue;
       }
 
@@ -109,6 +110,168 @@ export function getAccountsDashboard(params = {}) {
   if (params.cycleId) search.set("cycleId", params.cycleId);
   const qs = search.toString();
   return request(`/accounts/dashboard${qs ? `?${qs}` : ""}`);
+}
+
+export function createBillingCycle(body = {}) {
+  return request("/billing-cycles", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function runBillingCycle(cycleId) {
+  return request(`/billing-cycles/${encodeURIComponent(cycleId)}/run`, { method: "POST" });
+}
+
+export function lockBillingCycle(cycleId) {
+  return request(`/billing-cycles/${encodeURIComponent(cycleId)}/lock`, { method: "POST" });
+}
+
+export function getBillingSummary(cycleId) {
+  return request(`/billing/${encodeURIComponent(cycleId)}`);
+}
+
+export function getSocietyBilling(cycleId, societyId) {
+  return request(`/billing/${encodeURIComponent(cycleId)}/society/${encodeURIComponent(societyId)}`);
+}
+
+export function listAccountSchemes() {
+  return request("/schemes");
+}
+
+export function createAccountScheme(body) {
+  return request("/schemes", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function toggleAccountScheme(schemeId) {
+  return request(`/schemes/${encodeURIComponent(schemeId)}/toggle`, { method: "POST" });
+}
+
+export function listAccountClaims(params = {}) {
+  const search = new URLSearchParams();
+  if (params.societyId) search.set("societyId", params.societyId);
+  if (params.billingCycleId) search.set("billingCycleId", params.billingCycleId);
+  const qs = search.toString();
+  return request(`/accounts/claims${qs ? `?${qs}` : ""}`);
+}
+
+export function createAccountClaim(body) {
+  return request("/accounts/claims", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateAccountClaim(id, body) {
+  return request(`/accounts/claims/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteAccountClaim(id) {
+  return request(`/accounts/claims/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function listAccountRecoverables(params = {}) {
+  const search = new URLSearchParams();
+  if (params.societyId) search.set("societyId", params.societyId);
+  const qs = search.toString();
+  return request(`/accounts/recoverables${qs ? `?${qs}` : ""}`);
+}
+
+export function createAccountRecoverable(body) {
+  return request("/accounts/recoverables", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateAccountRecoverable(id, body) {
+  return request(`/accounts/recoverables/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteAccountRecoverable(id) {
+  return request(`/accounts/recoverables/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function getAccountInvoice(societyBillingId) {
+  return request(`/invoice/${encodeURIComponent(societyBillingId)}`);
+}
+
+export function getAccountPayoutReport(params = {}) {
+  const search = new URLSearchParams();
+  if (params.cycleId) search.set("cycleId", params.cycleId);
+  if (params.societyId) search.set("societyId", params.societyId);
+  const qs = search.toString();
+  return request(`/reports/payout${qs ? `?${qs}` : ""}`);
+}
+
+export function getAccountDeductionsReport(params = {}) {
+  const search = new URLSearchParams();
+  if (params.cycleId) search.set("cycleId", params.cycleId);
+  const qs = search.toString();
+  return request(`/reports/deductions${qs ? `?${qs}` : ""}`);
+}
+
+export function getAccountSchemesReport() {
+  return request("/reports/schemes");
+}
+
+export function getAccountReportSummary(params = {}) {
+  const search = new URLSearchParams();
+  if (params.cycleId) search.set("cycleId", params.cycleId);
+  const qs = search.toString();
+  return request(`/reports/summary${qs ? `?${qs}` : ""}`);
+}
+
+export function listDairyShipments(params = {}) {
+  const search = new URLSearchParams();
+  if (params.dairyUnit) search.set("dairyUnit", params.dairyUnit);
+  if (params.date) search.set("date", params.date);
+  const qs = search.toString();
+  return request(`/dairy/shipments${qs ? `?${qs}` : ""}`);
+}
+
+export function getDairyShipment(id) {
+  return request(`/dairy/shipments/${encodeURIComponent(id)}`);
+}
+
+export function updateDairyShipment(id, body) {
+  return request(`/dairy/shipments/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function finalizeDairyShipment(id, body) {
+  return request(`/dairy/shipments/${encodeURIComponent(id)}/finalize`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getDairyModuleReports(params = {}) {
+  const search = new URLSearchParams();
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  const qs = search.toString();
+  return request(`/dairy/reports${qs ? `?${qs}` : ""}`);
+}
+
+export function getMilkSessionStatus(params = {}) {
+  const search = new URLSearchParams();
+  if (params.societyId) search.set("societyId", params.societyId);
+  if (params.date) search.set("date", params.date);
+  if (params.session) search.set("session", params.session);
+  const qs = search.toString();
+  return request(`/milk-entries/session-status${qs ? `?${qs}` : ""}`);
 }
 
 export function getMilkEntries(params = {}) {
@@ -143,6 +306,15 @@ export function createVerification(body) {
   });
 }
 
+export function listVerifications(params = {}) {
+  const search = new URLSearchParams();
+  if (params.societyId) search.set("societyId", params.societyId);
+  if (params.date) search.set("date", params.date);
+  if (params.session) search.set("session", params.session);
+  const qs = search.toString();
+  return request(`/verifications${qs ? `?${qs}` : ""}`);
+}
+
 export function getSocietyDashboard(params = {}) {
   const search = new URLSearchParams();
   if (params.societyId) search.set("societyId", params.societyId);
@@ -155,6 +327,7 @@ export function getSocietyDashboard(params = {}) {
 export function getBmcDashboard(params = {}) {
   const search = new URLSearchParams();
   if (params.bmcId) search.set("bmcId", params.bmcId);
+  if (params.date) search.set("date", params.date);
   const qs = search.toString();
   return request(`/dashboards/bmc${qs ? `?${qs}` : ""}`);
 }
@@ -177,6 +350,33 @@ export function getDairyDashboard(params = {}) {
 export function login(body) {
   return request("/auth/login", {
     method: "POST",
+    body: JSON.stringify(body),
+    skipAuth: true,
+  });
+}
+
+export function fetchBmcUnits() {
+  return request("/auth/bmc-units", { skipAuth: true });
+}
+
+export function listProducts(params = {}) {
+  const search = new URLSearchParams();
+  if (params.status) search.set("status", params.status);
+  if (params.q) search.set("q", params.q);
+  const qs = search.toString();
+  return request(`/procurement/products${qs ? `?${qs}` : ""}`);
+}
+
+export function createProduct(body) {
+  return request("/procurement/products", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateProduct(id, body) {
+  return request(`/procurement/products/${id}`, {
+    method: "PUT",
     body: JSON.stringify(body),
   });
 }
@@ -204,10 +404,16 @@ export function updateRequest(id, body) {
   });
 }
 
+function cleanRequestBody(body = {}) {
+  const payload = { ...body };
+  if (!payload.userId) delete payload.userId;
+  return payload;
+}
+
 export function createRequest(body) {
   return request("/requests", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(cleanRequestBody(body)),
   });
 }
 

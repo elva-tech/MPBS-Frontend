@@ -1,6 +1,8 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { listRequests, updateRequest } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
+import { clearModuleSession } from "../../utils/authSession";
 
 function isImageAttachment(url, name) {
   const target = `${name || ""} ${url || ""}`.toLowerCase();
@@ -14,6 +16,7 @@ function isPdfAttachment(url, name) {
 
 export default function Requests() {
   const navigate = useNavigate();
+  const { showPopup } = usePopup();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -26,7 +29,7 @@ export default function Requests() {
 
     const intervalId = setInterval(() => {
       loadRequests({ silent: true });
-    }, 8000);
+    }, 60000);
 
     const onFocus = () => loadRequests({ silent: true });
     window.addEventListener("focus", onFocus);
@@ -40,19 +43,19 @@ export default function Requests() {
   const loadRequests = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const res = await listRequests({ type: "complaint" });
-      setRequests(res?.data || []);
+      const res = await listRequests();
+      const raw = res?.data ?? res;
+      const portalRequests = Array.isArray(raw) ? raw : [];
+      setRequests(portalRequests);
       setError("");
     } catch (err) {
       const message = err?.message || "Failed to load requests";
       const unauthorized =
-        /forbidden|missing token|invalid token|unauthorized/i.test(message);
+        err?.status === 401 &&
+        /missing token|invalid token|token expired/i.test(message);
 
       if (unauthorized) {
-        localStorage.removeItem("admin_auth");
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("user_role");
-        localStorage.removeItem("user_id");
+        clearModuleSession("admin");
         navigate("/admin/login", { replace: true });
         return;
       }
@@ -66,19 +69,16 @@ export default function Requests() {
   const handleApprove = async (reqId) => {
     const reason = (actionReason[reqId] || "").trim();
     if (!reason) {
-      alert("Please enter reason for approval");
+      showPopup({ message: "Please enter reason for approval", type: "warning" });
       return;
     }
     try {
-        console.log("[Admin] Approving request:", reqId, "with reason:", reason);
       await updateRequest(reqId, { status: "approved", adminActionReason: reason });
-        console.log("[Admin] Request approved successfully");
-      alert("Request approved");
+      showPopup({ message: "Request approved", type: "success" });
       setActiveAction((prev) => ({ ...prev, [reqId]: null }));
       setActionReason((prev) => ({ ...prev, [reqId]: "" }));
       await loadRequests();
     } catch (err) {
-        console.error("[Admin] Approval error:", err);
       setError(err.message || "Failed to update request");
     }
   };
@@ -86,19 +86,16 @@ export default function Requests() {
   const handleReject = async (reqId) => {
     const reason = (actionReason[reqId] || "").trim();
     if (!reason) {
-      alert("Please enter reason for rejection");
+      showPopup({ message: "Please enter reason for rejection", type: "warning" });
       return;
     }
     try {
-        console.log("[Admin] Rejecting request:", reqId, "with reason:", reason);
       await updateRequest(reqId, { status: "rejected", adminActionReason: reason });
-        console.log("[Admin] Request rejected successfully");
-      alert("Request rejected");
+      showPopup({ message: "Request rejected", type: "success" });
       setActiveAction((prev) => ({ ...prev, [reqId]: null }));
       setActionReason((prev) => ({ ...prev, [reqId]: "" }));
       await loadRequests();
     } catch (err) {
-        console.error("[Admin] Rejection error:", err);
       setError(err.message || "Failed to update request");
     }
   };
@@ -114,12 +111,18 @@ export default function Requests() {
   };
 
   return (
-    <div className="min-h-full bg-[#F8F6F2] p-6 text-[#1F2A44]">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[#1F2A44]">Admin Requests</h1>
+    <div
+      className="module-page text-[#1F2A44]"
+      style={{ backgroundImage: "linear-gradient(180deg,#F7FAFF 0%,#EEF4FF 100%)" }}
+    >
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1E4B6B]">Admin Requests</h1>
+          <p className="text-sm text-[#5B6B7F]">Pending society complaints, unlock requests, and password resets</p>
+        </div>
         <button
           onClick={loadRequests}
-          className="rounded-md border border-[#D6DCE5] bg-white px-3 py-1.5 text-sm font-semibold text-[#1E4B6B] hover:bg-[#F1F5F9]"
+          className="module-btn border border-[#1E4B6B] bg-[#1E4B6B] text-sm font-semibold text-white shadow-sm hover:bg-[#163A53]"
         >
           Refresh
         </button>
@@ -132,19 +135,22 @@ export default function Requests() {
       )}
 
       {loading ? (
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 text-sm text-[#5B6B7F]">
+        <div className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-6 text-sm text-[#5B6B7F] shadow-sm">
           Loading requests...
         </div>
       ) : requests.length === 0 ? (
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 text-sm text-[#5B6B7F]">
-          No requests found
+        <div className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-6 text-sm text-[#5B6B7F] shadow-sm">
+          <p className="font-semibold text-[#1E4B6B]">No pending requests</p>
+          <p className="mt-2">
+            Requests appear here when a society submits a complaint, milk unlock request, or forgot-password request.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
           {requests.map((req) => (
             <div
               key={req._id || req.id}
-              className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm"
+              className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
             >
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
@@ -199,6 +205,22 @@ export default function Requests() {
                         </span>
                       )}
                     </span>
+                  </p>
+                </div>
+              ) : req.type === "milk_unlock" ? (
+                <div className="mb-4 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] p-4 text-sm text-[#1F2A44]">
+                  <p className="mb-1">
+                    <span className="font-semibold">Society:</span> {req.societyName || req.societyId || "N/A"}
+                  </p>
+                  <p className="mb-1">
+                    <span className="font-semibold">Session Date:</span> {req.sessionDate || "N/A"}
+                  </p>
+                  <p className="mb-1">
+                    <span className="font-semibold">Session:</span>{" "}
+                    {req.sessionCode === "M" ? "Morning" : req.sessionCode === "E" ? "Evening" : req.sessionCode || "N/A"}
+                  </p>
+                  <p className="break-words">
+                    <span className="font-semibold">Issue:</span> {req.message || "N/A"}
                   </p>
                 </div>
               ) : (
@@ -284,12 +306,12 @@ export default function Requests() {
                 >
                   {(req.status || "pending") === "approved" ? (
                     <div>
-                      <p>Complaint approved successfully.</p>
+                      <p>Request approved successfully.</p>
                       {req.adminActionReason && <p className="mt-1 text-[#1F2A44]">Reason: {req.adminActionReason}</p>}
                     </div>
                   ) : (
                     <div>
-                      <p>Complaint rejected.</p>
+                      <p>Request rejected.</p>
                       {req.adminActionReason && <p className="mt-1 text-[#1F2A44]">Reason: {req.adminActionReason}</p>}
                     </div>
                   )}

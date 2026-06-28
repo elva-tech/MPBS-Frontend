@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { fetchSocieties } from "../../utils/api";
+import { litersTooltip, percentTooltip } from "../../shared/charts/tooltips";
 
 function formatNumber(value, suffix = "") {
   return `${Number(value || 0).toLocaleString("en-IN")}${suffix}`;
@@ -145,14 +146,14 @@ export default function ProcurementDashboard() {
   }, [societies]);
 
   return (
-    <div className="space-y-4 p-6 text-[#1F2A44]">
+    <div className="module-page text-[#1F2A44]">
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="module-stat-grid">
         {metrics.map((item, index) => (
           <div key={item.label} className="rounded-lg border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
             <div className="flex items-start gap-3">
@@ -173,11 +174,11 @@ export default function ProcurementDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_0.95fr_1.1fr]">
+      <div className="module-panel-grid-3">
         <section className="rounded-lg border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
           <h2 className="text-base font-semibold text-[#1E4B6B]">District-wise Distribution (This Month)</h2>
           <div className="mt-5 grid items-center gap-4 md:grid-cols-[190px_1fr] xl:grid-cols-1 2xl:grid-cols-[190px_1fr]">
-            <div className="h-48">
+            <div className="min-h-[240px] h-60">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={districtDistribution} dataKey="percent" nameKey="name" innerRadius={55} outerRadius={88}>
@@ -185,7 +186,7 @@ export default function ProcurementDashboard() {
                       <Cell key={index} fill={districtColors[index % districtColors.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `${value}%`} />
+                  <Tooltip formatter={percentTooltip} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -205,7 +206,7 @@ export default function ProcurementDashboard() {
 
         <section className="rounded-lg border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
           <h2 className="text-base font-semibold text-[#1E4B6B]">Product-wise Usage (This Month)</h2>
-          <div className="mt-5 h-60">
+          <div className="mt-5 min-h-[280px] h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={productUsage} margin={{ top: 10, right: 6, left: 0, bottom: 0 }}>
                 <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => `${value / 1000}K`} />

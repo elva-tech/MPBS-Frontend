@@ -40,23 +40,12 @@ export default function ProcurementLogin() {
 
       localStorage.setItem("auth_token", res.token);
       localStorage.setItem("procurement_token", res.token);
+      localStorage.setItem("procurement_role", user.role);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
       localStorage.setItem("procurement_id", user.id);
       localStorage.setItem("procurement_name", user.username);
       localStorage.setItem("procurement_auth", "true");
-      localStorage.removeItem("society_auth");
-      localStorage.removeItem("society_token");
-      localStorage.removeItem("admin_auth");
-      localStorage.removeItem("admin_token");
-      localStorage.removeItem("bmc_auth");
-      localStorage.removeItem("bmc_token");
-      localStorage.removeItem("account_auth");
-      localStorage.removeItem("account_token");
-      localStorage.removeItem("audit_auth");
-      localStorage.removeItem("audit_token");
-      localStorage.removeItem("dairy_auth");
-      localStorage.removeItem("dairy_token");
       navigate("/procurement/dashboard");
     } catch (err) {
       setError(err.message || "Invalid Username or Password");

@@ -1,171 +1,105 @@
 import React, { useState, useEffect } from "react";
+import {
+  fetchSocieties,
+  getSocietyDashboard,
+  getBmcDashboard,
+  getAdminDashboard,
+  getDairyDashboard,
+  listVerifications,
+} from "../../utils/api";
 
-// Entity lists for each role
-const SOCIETIES = [
-  { id: "s1", name: "SOCIETY_001", label: "SOCIETY_001" },
-  { id: "s2", name: "SOCIETY_002", label: "SOCIETY_002" },
-  { id: "s3", name: "SOCIETY_003", label: "SOCIETY_003" },
-];
+const ADMIN_ENTITIES = [{ id: "system", label: "System Overview" }];
 
-const BMCS = [
-  { id: "b1", name: "BMC_001", label: "BMC_001" },
-  { id: "b2", name: "BMC_002", label: "BMC_002" },
-  { id: "b3", name: "BMC_003", label: "BMC_003" },
-];
-
-const ADMINS = [
-  { id: "a1", name: "admin001", label: "Admin - Super Admin" },
-  { id: "a2", name: "admin002", label: "Admin - Regional" },
-];
-
-const DIARIES = [
-  { id: "d1", name: "Dairy Main", label: "Main Dairy" },
-  { id: "d2", name: "Dairy Branch", label: "Branch Dairy" },
-];
-
-const MOCK_DATA = [
-  { id: "SOCIETY_001", role: "Society", name: "SOCIETY_001", contact: "9876543210", extra: "District: Raichur" },
-  { id: "SOCIETY_002", role: "Society", name: "SOCIETY_002", contact: "9876543209", extra: "District: Hubli" },
-  { id: "BMC_001", role: "BMC", name: "BMC_001", contact: "9123456780", extra: "Location: Depot A" },
-  { id: "BMC_002", role: "BMC", name: "BMC_002", contact: "9123456781", extra: "Location: Depot B" },
-  { id: "admin001", role: "Admin", name: "admin001", contact: "9000000000", extra: "Super admin" },
-  { id: "DIARY_001", role: "Diary", name: "Daily Entry 1", contact: "2024-01-15", extra: "Morning collection report" },
-  { id: "DIARY_002", role: "Diary", name: "Daily Entry 2", contact: "2024-01-16", extra: "Evening dispatch summary" },
-];
-
-// SOCIETY Mock Data - for each society
-const SOCIETY_MOCK_DATA = {
-  "SOCIETY_001": {
-    summary: {
-      totalMilk: 2450,
-      totalFarmers: 145,
-      verified: 92,
-      type: { cow: 1200, buffalo: 1250 },
-      session: { morning: 1100, evening: 1350 },
-      points: 8,
-      rejected: 3,
-    },
-  },
-  "SOCIETY_002": {
-    summary: {
-      totalMilk: 3120,
-      totalFarmers: 178,
-      verified: 95,
-      type: { cow: 1650, buffalo: 1470 },
-      session: { morning: 1450, evening: 1670 },
-      points: 12,
-      rejected: 2,
-    },
-  },
-  "SOCIETY_003": {
-    summary: {
-      totalMilk: 1880,
-      totalFarmers: 112,
-      verified: 88,
-      type: { cow: 920, buffalo: 960 },
-      session: { morning: 850, evening: 1030 },
-      points: 6,
-      rejected: 5,
-    },
-  },
-};
-
-// BMC Mock Data - for each BMC
-const BMC_MOCK_DATA = {
-  "BMC_001": {
-    summary: {
-      totalMilk: 5400,
-      totalVerified: 5200,
-      acceptanceRate: 96.3,
-      type: { cow: 2700, buffalo: 2700 },
-      storageUsed: 78,
-      rejected: 200,
-      societiesCount: 5,
-    },
-    dispatchStats: { totalDispatches: 18 },
-  },
-  "BMC_002": {
-    summary: {
-      totalMilk: 6200,
-      totalVerified: 5950,
-      acceptanceRate: 95.97,
-      type: { cow: 3100, buffalo: 3100 },
-      storageUsed: 82,
-      rejected: 250,
-      societiesCount: 7,
-    },
-    dispatchStats: { totalDispatches: 22 },
-  },
-  "BMC_003": {
-    summary: {
-      totalMilk: 4100,
-      totalVerified: 3980,
-      acceptanceRate: 97.07,
-      type: { cow: 2050, buffalo: 2050 },
-      storageUsed: 65,
-      rejected: 120,
-      societiesCount: 4,
-    },
-    dispatchStats: { totalDispatches: 14 },
-  },
-};
-
-// ADMIN Mock Data
-const ADMIN_MOCK_DATA = {
-  "Admin - Super Admin": {
-    dcsCount: 884,
-    bmcCount: 70,
-    dairyUnitsCount: 3,
-    cowMilk: 81.48,
-    buffaloMilk: 18.51,
-    billedPercent: 92,
-    unbilledPercent: 8,
-  },
-  "Admin - Regional": {
-    dcsCount: 412,
-    bmcCount: 35,
-    dairyUnitsCount: 1,
-    cowMilk: 80.5,
-    buffaloMilk: 19.5,
-    billedPercent: 89,
-    unbilledPercent: 11,
-  },
-};
-
-// DIARY Mock Data - for each dairy
-const DIARY_MOCK_DATA = {
-  "Main Dairy": {
-    totalEntries: 156,
-    completedRecords: 148,
-    pendingRecords: 8,
-    transactions: 312,
-    completionRate: 94.87,
-    lastUpdated: "14:32:00",
-    avgTime: 5.2,
-    errorRecords: 3,
-    verifiedBy: "Admin - Super Admin",
-  },
-  "Branch Dairy": {
-    totalEntries: 98,
-    completedRecords: 92,
-    pendingRecords: 6,
-    transactions: 184,
-    completionRate: 93.87,
-    lastUpdated: "13:15:00",
-    avgTime: 4.8,
-    errorRecords: 2,
-    verifiedBy: "Admin - Regional",
-  },
-};
+function round2(n) {
+  const v = Number(n || 0);
+  return Number.isFinite(v) ? Number(v.toFixed(2)) : 0;
+}
 
 export default function AuditReports() {
   const [roleFilter, setRoleFilter] = useState("Society");
-  const [selectedEntity, setSelectedEntity] = useState("s1"); // Default to first society
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]); // Today's date
+  const [societies, setSocieties] = useState([]);
+  const [bmcs, setBmcs] = useState([]);
+  const [dairyUnits, setDairyUnits] = useState([]);
+  const [selectedEntity, setSelectedEntity] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState("");
   const [searchTriggered, setSearchTriggered] = useState(false);
+  const [loadingEntities, setLoadingEntities] = useState(true);
+  const [entityError, setEntityError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadEntities() {
+      setLoadingEntities(true);
+      setEntityError("");
+      try {
+        const response = await fetchSocieties();
+        if (!active) return;
+        const list = response?.data || [];
+
+        const societyOptions = list.map((s) => ({
+          id: s.societyId,
+          label: `${s.societyId} - ${s.societyName}`,
+          societyId: s.societyId,
+        }));
+        setSocieties(societyOptions);
+
+        const bmcMap = new Map();
+        list.forEach((s) => {
+          if (s.bmcId && !bmcMap.has(s.bmcId)) {
+            bmcMap.set(s.bmcId, { id: s.bmcId, label: s.bmcId, bmcId: s.bmcId });
+          }
+        });
+        setBmcs(Array.from(bmcMap.values()));
+
+        const routeMap = new Map();
+        list.forEach((s) => {
+          const route = String(s.route || "").trim();
+          if (route && !routeMap.has(route)) {
+            routeMap.set(route, { id: route, label: route, dairyUnit: route });
+          }
+        });
+        setDairyUnits(Array.from(routeMap.values()));
+      } catch (err) {
+        if (!active) return;
+        setEntityError(err.message || "Failed to load entities from database.");
+      } finally {
+        if (active) setLoadingEntities(false);
+      }
+    }
+
+    loadEntities();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const getEntityList = () => {
+    switch (roleFilter) {
+      case "Society":
+        return societies;
+      case "BMC":
+        return bmcs;
+      case "Admin":
+        return ADMIN_ENTITIES;
+      case "Diary":
+        return dairyUnits;
+      default:
+        return [];
+    }
+  };
+
+  useEffect(() => {
+    const entities = getEntityList();
+    if (entities.length > 0) {
+      setSelectedEntity(entities[0].id);
+    } else {
+      setSelectedEntity("");
+    }
+  }, [roleFilter, societies, bmcs, dairyUnits]);
 
   const handleSearch = async () => {
     setSearchTriggered(true);
@@ -175,25 +109,111 @@ export default function AuditReports() {
 
     try {
       if (roleFilter === "Society") {
-        const society = SOCIETIES.find(s => s.id === selectedEntity);
+        const society = societies.find((s) => s.id === selectedEntity);
         if (!society) throw new Error("No society selected");
-        const mockData = SOCIETY_MOCK_DATA[society.label];
-        setSummary({ role: "Society", label: society.label, date: selectedDate, data: mockData });
+
+        const dash = await getSocietyDashboard({
+          societyId: society.societyId,
+          from: selectedDate,
+          to: selectedDate,
+        });
+        const verifications = await listVerifications({
+          societyId: society.societyId,
+          date: selectedDate,
+        });
+        const verifiedSessions = verifications?.data?.length || 0;
+        const mismatchCount =
+          (verifications?.data || []).filter((v) =>
+            String(v.comparisonStatus || "").toUpperCase().includes("MISMATCH")
+          ).length;
+
+        setSummary({
+          role: "Society",
+          label: society.label,
+          date: selectedDate,
+          data: {
+            summary: {
+              totalMilk: dash?.data?.summary?.totalMilk ?? 0,
+              totalFarmers: dash?.data?.summary?.totalFarmers ?? 0,
+              verified: verifiedSessions > 0 ? 100 : 0,
+              type: dash?.data?.summary?.type ?? { cow: 0, buffalo: 0 },
+              session: dash?.data?.summary?.session ?? { morning: 0, evening: 0 },
+              points: verifiedSessions,
+              rejected: mismatchCount,
+            },
+          },
+        });
       } else if (roleFilter === "BMC") {
-        const bmc = BMCS.find(b => b.id === selectedEntity);
+        const bmc = bmcs.find((b) => b.id === selectedEntity);
         if (!bmc) throw new Error("No BMC selected");
-        const mockData = BMC_MOCK_DATA[bmc.label];
-        setSummary({ role: "BMC", label: bmc.label, date: selectedDate, data: mockData });
+
+        const dash = await getBmcDashboard({ bmcId: bmc.bmcId, date: selectedDate });
+        const s = dash?.data?.summary || {};
+        const totalMilk = Number(s.totalMilk || 0);
+        const totalVerified = Number(s.totalVerified || 0);
+
+        setSummary({
+          role: "BMC",
+          label: bmc.label,
+          date: selectedDate,
+          data: {
+            summary: {
+              totalMilk,
+              totalVerified,
+              acceptanceRate: totalMilk > 0 ? round2((totalVerified / totalMilk) * 100) : 0,
+              type: s.type ?? { cow: 0, buffalo: 0 },
+            },
+            dispatchStats: dash?.data?.dispatchStats ?? { totalDispatches: 0 },
+          },
+        });
       } else if (roleFilter === "Admin") {
-        const admin = ADMINS.find(a => a.id === selectedEntity);
-        if (!admin) throw new Error("No admin selected");
-        const mockData = ADMIN_MOCK_DATA[admin.label];
-        setSummary({ role: "Admin", label: admin.label, date: selectedDate, data: mockData });
+        const dash = await getAdminDashboard();
+        const topStats = dash?.data?.topStats || [];
+        const findStat = (needle) =>
+          topStats.find((row) => String(row.label || "").toLowerCase().includes(needle))?.value ?? 0;
+        const milkProcured = dash?.data?.milkProcured || [];
+        const finance = dash?.data?.finance || [];
+
+        setSummary({
+          role: "Admin",
+          label: "System Overview",
+          date: selectedDate,
+          data: {
+            dcsCount: findStat("dcs"),
+            bmcCount: findStat("bmc"),
+            dairyUnitsCount: findStat("dairy"),
+            cowMilk: milkProcured.find((m) => /cow/i.test(m.name))?.value ?? 0,
+            buffaloMilk: milkProcured.find((m) => /buffalo/i.test(m.name))?.value ?? 0,
+            billedPercent: finance.find((f) => f.name === "Billed")?.value ?? 0,
+            unbilledPercent: finance.find((f) => f.name === "Unbilled")?.value ?? 0,
+          },
+        });
       } else if (roleFilter === "Diary") {
-        const diary = DIARIES.find(d => d.id === selectedEntity);
-        if (!diary) throw new Error("No diary selected");
-        const mockData = DIARY_MOCK_DATA[diary.label];
-        setSummary({ role: "Diary", label: diary.label, date: selectedDate, data: mockData });
+        const diary = dairyUnits.find((d) => d.id === selectedEntity);
+        if (!diary) throw new Error("No dairy unit selected");
+
+        const dash = await getDairyDashboard({ date: selectedDate, dairyUnit: diary.dairyUnit });
+        const cards = dash?.data?.cards || {};
+        const tankers = Number(cards.tankerCount || 0);
+        const pending = Number(cards.pendingVerification || 0);
+        const completed = Math.max(tankers - pending, 0);
+
+        setSummary({
+          role: "Diary",
+          label: diary.label,
+          date: selectedDate,
+          data: {
+            totalEntries: tankers,
+            completedRecords: completed,
+            pendingRecords: pending,
+            transactions: round2(cards.milkReceived || 0),
+            completionRate: tankers > 0 ? round2((completed / tankers) * 100) : 0,
+            lastUpdated: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+            avgTime: 0,
+            errorRecords: Number(cards.totalShortage || 0) > 0 ? 1 : 0,
+            verifiedBy: "Dairy Operations",
+          },
+        });
       }
     } catch (err) {
       setSummaryError(err.message || String(err));
@@ -202,29 +222,7 @@ export default function AuditReports() {
     }
   };
 
-  // Get the list of entities based on role
-  const getEntityList = () => {
-    switch (roleFilter) {
-      case "Society":
-        return SOCIETIES;
-      case "BMC":
-        return BMCS;
-      case "Admin":
-        return ADMINS;
-      case "Diary":
-        return DIARIES;
-      default:
-        return [];
-    }
-  };
-
-  // Update selected entity when role changes
-  useEffect(() => {
-    const entities = getEntityList();
-    if (entities.length > 0) {
-      setSelectedEntity(entities[0].id);
-    }
-  }, [roleFilter]);
+  const entityList = getEntityList();
 
   return (
     <div className="p-6 bg-blue-50 min-h-screen">
@@ -248,14 +246,19 @@ export default function AuditReports() {
         </div>
       </div>
 
+      {entityError ? <div className="mb-4 text-sm text-red-600">{entityError}</div> : null}
+
       <div className="flex gap-4 mb-6">
         <select
           value={selectedEntity}
           onChange={(e) => setSelectedEntity(e.target.value)}
           className="rounded border px-3 py-2 bg-white text-sm flex-1"
           aria-label="Select entity"
+          disabled={loadingEntities || entityList.length === 0}
         >
-          {getEntityList().map((entity) => (
+          {loadingEntities ? <option value="">Loading entities...</option> : null}
+          {!loadingEntities && entityList.length === 0 ? <option value="">No entities found</option> : null}
+          {entityList.map((entity) => (
             <option key={entity.id} value={entity.id}>
               {entity.label}
             </option>
@@ -273,7 +276,8 @@ export default function AuditReports() {
       <div className="flex justify-end mb-6">
         <button
           onClick={handleSearch}
-          className="bg-[#1E4B6B] text-white px-6 py-2 rounded hover:bg-[#153a52] transition-colors text-sm font-medium"
+          disabled={loadingEntities || !selectedEntity}
+          className="bg-[#1E4B6B] text-white px-6 py-2 rounded hover:bg-[#153a52] transition-colors text-sm font-medium disabled:opacity-50"
           aria-label="Search audit reports"
         >
           Search
@@ -327,6 +331,19 @@ export default function AuditReports() {
                       <p className="font-semibold text-lg text-slate-800">{summary.data?.summary?.type?.buffalo ?? "0"} L</p>
                       <p className="text-xs text-slate-600 mt-2">% of Total</p>
                     </div>
+                    <div className="bg-white rounded px-4 py-3 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-xs text-slate-500 font-medium mb-2">COLLECTION POINTS</p>
+                      <p className="font-semibold text-lg text-slate-800">{summary.data?.summary?.points ?? "0"}</p>
+                      <p className="text-xs text-slate-600 mt-2">Verified Sessions</p>
+                    </div>
+                    <div className="bg-white rounded px-4 py-3 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-xs text-slate-500 font-medium mb-2">REJECTED / MISMATCH</p>
+                      <p className="font-semibold text-lg text-slate-800">{summary.data?.summary?.rejected ?? "0"}</p>
+                      <p className="text-xs text-slate-600 mt-2">Records</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="bg-white rounded px-4 py-3 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                       <p className="text-xs text-slate-500 font-medium mb-2">MORNING COLLECTION</p>
                       <p className="font-semibold text-lg text-slate-800">{summary.data?.summary?.session?.morning ?? "0"} L</p>
@@ -471,7 +488,7 @@ export default function AuditReports() {
                     <div className="bg-white rounded px-4 py-3 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                       <p className="text-xs text-slate-500 font-medium mb-2">TOTAL TRANSACTIONS</p>
                       <p className="font-semibold text-lg text-slate-800">{summary.data?.transactions ?? "0"}</p>
-                      <p className="text-xs text-slate-600 mt-2">Processed</p>
+                      <p className="text-xs text-slate-600 mt-2">Milk Received (L)</p>
                     </div>
                     <div className="bg-white rounded px-4 py-3 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                       <p className="text-xs text-slate-500 font-medium mb-2">COMPLETION RATE</p>

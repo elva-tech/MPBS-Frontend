@@ -70,7 +70,7 @@ export default function ProcurementReports() {
   };
 
   return (
-    <div className="space-y-4 p-6 text-[#1F2A44]">
+    <div className="module-page text-[#1F2A44]">
       <section className="rounded-lg border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.1fr_1fr_auto]">
           <label className="block">

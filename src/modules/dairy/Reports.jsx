@@ -1,8 +1,24 @@
-import { useMemo } from "react";
-import { calculateTotals, getShipments } from "./state";
+import { useEffect, useMemo, useState } from "react";
+import { calculateTotals, fetchDairyReports } from "./state";
 
 export default function DairyReports() {
-  const shipments = useMemo(() => getShipments(), []);
+  const [shipments, setShipments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const today = new Date().toISOString().slice(0, 10);
+    fetchDairyReports({ from: today, to: today })
+      .then((data) => {
+        if (active) setShipments(data.shipments || []);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const summary = useMemo(() => {
     return shipments.reduce(
@@ -20,7 +36,7 @@ export default function DairyReports() {
   }, [shipments]);
 
   return (
-    <div className="p-6 text-[#1F2A44]">
+    <div className="module-page module-page-body text-[#1F2A44]">
       <h1 className="text-2xl font-semibold text-[#1E4B6B]">Reports</h1>
       <p className="mt-1 text-sm text-[#5B6B7F]">
         Shift summary generated from dairy verification and discrepancy decisions.
@@ -46,19 +62,29 @@ export default function DairyReports() {
               </tr>
             </thead>
             <tbody>
-              {shipments.map((item) => {
-                const totals = calculateTotals(item.stops || []);
-                return (
-                  <tr key={item.id} className="border-t border-[#E6EDF7]">
-                    <td className="px-3 py-2">{item.tankerId}</td>
-                    <td className="px-3 py-2">{item.route}</td>
-                    <td className="px-3 py-2">{item.status}</td>
-                    <td className="px-3 py-2">{totals.received} L</td>
-                    <td className="px-3 py-2">{totals.shortage} L</td>
-                    <td className="px-3 py-2">Rs. {Number(item.discrepancy?.deduction || 0)}</td>
-                  </tr>
-                );
-              })}
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-center text-[#5B6B7F]">Loading reports...</td>
+                </tr>
+              ) : shipments.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-center text-[#5B6B7F]">No shipment data for today.</td>
+                </tr>
+              ) : (
+                shipments.map((item) => {
+                  const totals = calculateTotals(item.stops || []);
+                  return (
+                    <tr key={item.id} className="border-t border-[#E6EDF7]">
+                      <td className="px-3 py-2">{item.tankerId}</td>
+                      <td className="px-3 py-2">{item.route}</td>
+                      <td className="px-3 py-2">{item.status}</td>
+                      <td className="px-3 py-2">{totals.received} L</td>
+                      <td className="px-3 py-2">{totals.shortage} L</td>
+                      <td className="px-3 py-2">Rs. {Number(item.discrepancy?.deduction || 0)}</td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

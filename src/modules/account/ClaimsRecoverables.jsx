@@ -1,6 +1,13 @@
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
-import { addAdjustment, deleteAdjustment, loadAccountState, setSelections, toggleAdjustmentStatus } from "./engine";
+import { useEffect, useMemo, useState } from "react";
+import {
+  addAdjustmentRecord,
+  deleteAdjustmentRecord,
+  fetchAccountState,
+  setAccountSelections,
+  toggleAdjustmentRecord,
+} from "./accountService";
+import { usePopup } from "../../shared/context/PopupContext";
 
 const initialForm = {
   kind: "CLAIM",
@@ -70,17 +77,29 @@ function InputLabel({ children }) {
 }
 
 export default function ClaimsRecoverables() {
-  const [state, setState] = useState(() => loadAccountState());
+  const { showConfirm } = usePopup();
+  const [state, setState] = useState({ claims: [], recoverables: [], societies: [], cycles: [], selectedCycleId: "" });
   const [tab, setTab] = useState("All");
   const [message, setMessage] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState(() => ({
-    ...initialForm,
-    societyId: "ALL",
-    cycleId: state.selectedCycleId,
-  }));
+  const [form, setForm] = useState(initialForm);
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    fetchAccountState().then((next) => {
+      if (!active) return;
+      setState(next);
+      setForm((current) => ({
+        ...current,
+        cycleId: current.cycleId || next.selectedCycleId || next.cycles?.at(-1)?.id || "",
+      }));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const steps = ["Type", "Society", "Amount", "Reason"];
   const selectedType = ADJUSTMENT_TYPES.find((item) => item.value === form.kind) || ADJUSTMENT_TYPES[0];
@@ -160,7 +179,7 @@ export default function ClaimsRecoverables() {
     setStep((current) => Math.max(current - 1, 0));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const error = getStepError(step, form, state);
     if (error) {
       setFormError(error);
@@ -168,31 +187,44 @@ export default function ClaimsRecoverables() {
     }
 
     const payload = buildPayload(form);
-    const res = addAdjustment(payload);
-    const next = setSelections({ cycleId: payload.cycleId, societyId: payload.societyId === "ALL" ? "" : payload.societyId });
-    const nextState = next || res.state || loadAccountState();
-    setState(nextState);
-    setMessage(res.message);
-    setShowForm(false);
-    resetForm(nextState);
+    try {
+      const res = await addAdjustmentRecord(payload);
+      setAccountSelections({ cycleId: payload.cycleId, societyId: payload.societyId === "ALL" ? "" : payload.societyId });
+      setState(res.state);
+      setMessage(res.message);
+      setShowForm(false);
+      resetForm(res.state);
+    } catch (error) {
+      setMessage(error.message || "Unable to save adjustment.");
+    }
   };
 
-  const handleDelete = (row) => {
-    const confirmed = window.confirm(`Delete ${row.type.toLowerCase()} entry for ${row.society}?`);
+  const handleDelete = async (row) => {
+    const confirmed = await showConfirm({
+      message: `Delete ${row.type.toLowerCase()} entry for ${row.society}?`,
+    });
     if (!confirmed) return;
-    const res = deleteAdjustment(row.type === "Claim" ? "CLAIM" : "RECOVERABLE", row.id);
-    setState(res.state || loadAccountState());
-    setMessage(res.message);
+    try {
+      const res = await deleteAdjustmentRecord(row.type === "Claim" ? "CLAIM" : "RECOVERABLE", row.id);
+      setState(res.state);
+      setMessage(res.message);
+    } catch (error) {
+      setMessage(error.message || "Unable to delete entry.");
+    }
   };
 
-  const handleStatusToggle = (row) => {
-    const res = toggleAdjustmentStatus(row.type === "Claim" ? "CLAIM" : "RECOVERABLE", row.id);
-    setState(res.state || loadAccountState());
-    setMessage(res.message);
+  const handleStatusToggle = async (row) => {
+    try {
+      const res = await toggleAdjustmentRecord(row.type === "Claim" ? "CLAIM" : "RECOVERABLE", row.id);
+      setState(res.state);
+      setMessage(res.message);
+    } catch (error) {
+      setMessage(error.message || "Unable to update status.");
+    }
   };
 
   return (
-    <div className="p-6 text-[#1F2A44]">
+    <div className="module-page module-page-body text-[#1F2A44]">
       <div className="rounded-xl border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

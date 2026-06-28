@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { login } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
 
 export default function SocietyLogin() {
   const navigate = useNavigate();
+  const { showPopup } = usePopup();
   const [showPassword, setShowPassword] = useState(false);
 
   const [form, setForm] = useState({
@@ -29,16 +31,20 @@ export default function SocietyLogin() {
       const user = res?.user;
       
       if (!user) {
-        alert("Login failed - no user data received");
+        await showPopup({ message: "Login failed - no user data received", type: "error" });
         return;
       }
       
       if (user.role !== "Society") {
-        alert(`Not authorized - This is a ${user.role} account. Please use Society login credentials.`);
+        await showPopup({
+          message: `Not authorized - This is a ${user.role} account. Please use Society login credentials.`,
+          type: "error",
+        });
         return;
       }
       localStorage.setItem("auth_token", res.token);
       localStorage.setItem("society_token", res.token);
+      localStorage.setItem("society_role", user.role);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
       localStorage.setItem("society_user_id", user.id);
@@ -47,7 +53,7 @@ export default function SocietyLogin() {
       localStorage.setItem("society_id", user.username);
       navigate("/");
     } catch (err) {
-      alert(err.message || "Invalid Username or Password");
+      await showPopup({ message: err.message || "Invalid Username or Password", type: "error" });
     }
   };
 

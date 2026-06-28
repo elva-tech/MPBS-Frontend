@@ -1,5 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import PageContent from "../../shared/components/PageContent";
+import { ModuleNavIcons } from "../../shared/components/ModuleNavIcons";
 
 export default function AuditLayout() {
   const navigate = useNavigate();
@@ -28,69 +30,30 @@ export default function AuditLayout() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-y-hidden">
+    <div className="flex h-screen bg-[#F8F6F2] overflow-y-hidden">
       {/* SIDEBAR */}
-      <aside className="w-64 bg-white text-[#1E4B6B] flex flex-col border-r overflow-hidden caret-transparent">
-        {/* TOP LOGO */}
-        <div className="p-4 border-b border-[#1E4B6B] bg-white">
-          <img
-            src="/logo1.png"
-            alt="Logo"
-            className="h-[80px] w-auto mx-auto"
-          />
-          <h3 className="text-center text-sm font-semibold text-[#1E4B6B] mt-2">
-            Audit Module
-          </h3>
+      <aside className="module-sidebar caret-transparent">
+        <div className="module-sidebar-logo">
+          <img src="/logo1.png" alt="Logo" className="!h-[80px]" />
+          <h3 className="mt-2 text-center text-sm font-semibold text-[#1E4B6B]">Audit Module</h3>
         </div>
 
-        {/* NAV */}
-        <nav className="flex-1 p-2 space-y-1">
+        <nav className="module-sidebar-nav">
           <NavLink
             to="/audit/reports"
             className={({ isActive }) =>
-              `block px-4 py-3 rounded hover:bg-[#EAF1FF] flex items-center gap-3 ${
-                isActive ? "bg-[#1E4B6B] text-white" : "text-[#1E4B6B]"
-              }`
+              `module-sidebar-link ${isActive ? "module-sidebar-link-active" : "module-sidebar-link-idle"}`
             }
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="shrink-0"
-            >
-              <rect
-                x="4"
-                y="3"
-                width="16"
-                height="18"
-                rx="2"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-              <path
-                d="M8 8h8M8 12h8M8 16h5"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
+            {ModuleNavIcons.audit}
             <span>Audit Reports</span>
           </NavLink>
         </nav>
 
         {/* SIDEBAR FOOTER */}
-        <div className="p-4 border-t border-[#1E4B6B]">
-          <div className="mb-3 text-xs text-slate-600">
-            <p className="font-semibold">{auditName}</p>
-            <p>Audit User</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 text-red-600 hover:bg-red-50 px-2 py-2 rounded text-sm font-medium"
-          >
+        <div className="module-sidebar-footer">
+          <p className="module-sidebar-user">{auditName}</p>
+          <button type="button" onClick={handleLogout} className="module-sidebar-logout">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-4 w-4"
@@ -111,7 +74,7 @@ export default function AuditLayout() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex flex-1 flex-col min-h-0 overflow-auto">
         {/* TOP BAR */}
         <div className="flex items-center px-4 pt-4">
           <div className="flex-1">
@@ -128,7 +91,9 @@ export default function AuditLayout() {
           <div className="flex items-center gap-4 relative" />
         </div>
 
-        <Outlet />
+        <PageContent>
+          <Outlet />
+        </PageContent>
       </main>
     </div>
   );

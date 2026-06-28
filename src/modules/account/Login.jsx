@@ -43,16 +43,13 @@ export default function AccountLogin() {
       }
 
       localStorage.setItem("auth_token", res.token);
+      localStorage.setItem("account_token", res.token);
+      localStorage.setItem("account_role", user.role);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
       localStorage.setItem("account_auth", "true");
       localStorage.setItem("account_name", user.username);
       localStorage.setItem("account_id", user.username);
-
-      localStorage.removeItem("society_auth");
-      localStorage.removeItem("admin_auth");
-      localStorage.removeItem("bmc_auth");
-      localStorage.removeItem("dairy_auth");
 
       navigate("/account/dashboard");
     } catch (err) {

@@ -277,8 +277,12 @@ async function calculateCycleBilling(req, cycle) {
       transportPenalty: bucket.transportPenalty,
     };
 
-    const societyClaims = cycleClaims.filter((claim) => claim.societyId === bucket.societyId && claim.status === "APPLIED");
-    const activeRecoverables = recoverables.filter((recoverable) => recoverable.societyId === bucket.societyId);
+    const societyClaims = cycleClaims.filter(
+      (claim) => (claim.societyId === bucket.societyId || claim.societyId === "ALL") && claim.status === "APPLIED"
+    );
+    const activeRecoverables = recoverables.filter(
+      (recoverable) => recoverable.societyId === bucket.societyId || recoverable.societyId === "ALL"
+    );
     const applicableSchemes = schemes.filter((scheme) => isSchemeApplicable(scheme, bucket.societyId) && passesCondition(scheme, summary));
 
     let totalClaims = 0;
@@ -755,6 +759,48 @@ export async function createRecoverable(req, res) {
   });
   await logAudit(req, "CREATE_RECOVERABLE", "Recoverable", String(next._id), { societyId: next.societyId, totalAmount: next.totalAmount });
   res.status(201).json({ data: next });
+}
+
+export async function updateClaim(req, res) {
+  const claim = await Claim.findById(req.params.id);
+  if (!claim) return res.status(404).json({ message: "Claim not found." });
+  const { status, amount, type, description } = req.body || {};
+  if (status) claim.status = status;
+  if (amount !== undefined) claim.amount = Number(amount);
+  if (type) claim.type = type;
+  if (description !== undefined) claim.description = description;
+  await claim.save();
+  await logAudit(req, "UPDATE_CLAIM", "Claim", String(claim._id), { status: claim.status });
+  res.json({ data: claim });
+}
+
+export async function deleteClaimRecord(req, res) {
+  const claim = await Claim.findById(req.params.id);
+  if (!claim) return res.status(404).json({ message: "Claim not found." });
+  await claim.deleteOne();
+  await logAudit(req, "DELETE_CLAIM", "Claim", String(claim._id), { societyId: claim.societyId });
+  res.json({ message: "Claim deleted." });
+}
+
+export async function updateRecoverable(req, res) {
+  const recoverable = await Recoverable.findById(req.params.id);
+  if (!recoverable) return res.status(404).json({ message: "Recoverable not found." });
+  const { status, installmentAmount, remainingAmount, reason } = req.body || {};
+  if (status) recoverable.status = status;
+  if (installmentAmount !== undefined) recoverable.installmentAmount = Number(installmentAmount);
+  if (remainingAmount !== undefined) recoverable.remainingAmount = Number(remainingAmount);
+  if (reason) recoverable.reason = reason;
+  await recoverable.save();
+  await logAudit(req, "UPDATE_RECOVERABLE", "Recoverable", String(recoverable._id), { status: recoverable.status });
+  res.json({ data: recoverable });
+}
+
+export async function deleteRecoverableRecord(req, res) {
+  const recoverable = await Recoverable.findById(req.params.id);
+  if (!recoverable) return res.status(404).json({ message: "Recoverable not found." });
+  await recoverable.deleteOne();
+  await logAudit(req, "DELETE_RECOVERABLE", "Recoverable", String(recoverable._id), { societyId: recoverable.societyId });
+  res.json({ message: "Recoverable deleted." });
 }
 
 function renderInvoiceLines(invoice) {
