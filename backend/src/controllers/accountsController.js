@@ -231,6 +231,135 @@ async function ensureCycleStatus(cycle, allowedStatuses, message) {
   return { ok: true };
 }
 
+function metricsFromBillingRows(billingRows, totalMilkLitres) {
+  const totalMilkAmount = sum(billingRows, (row) => Number(row.milkAmount || 0));
+  const totalClaims = sum(billingRows, (row) => Number(row.totalClaims || 0));
+  const totalSchemeBenefits = sum(billingRows, (row) => Number(row.totalSchemeBenefits || 0));
+  const totalRecoverables = sum(billingRows, (row) => Number(row.totalRecoverables || 0));
+  const totalSchemeDeductions = sum(billingRows, (row) => Number(row.totalSchemeDeductions || 0));
+  const transportPenalty = sum(billingRows, (row) => Number(row.transportPenalty || 0));
+  const totalPayable = roundMoney(totalMilkAmount + totalClaims + totalSchemeBenefits);
+  const totalDeductions = roundMoney(totalRecoverables + totalSchemeDeductions + transportPenalty);
+  const netPayable = roundMoney(totalPayable - totalDeductions);
+
+  return {
+    totalMilkLitres: roundMoney(totalMilkLitres),
+    totalMilkValue: roundMoney(totalMilkAmount),
+    totalPayable,
+    totalDeductions,
+    netPayable,
+    breakdown: {
+      additions: {
+        milkValue: roundMoney(totalMilkAmount),
+        claims: roundMoney(totalClaims),
+        schemeBenefits: roundMoney(totalSchemeBenefits),
+      },
+      deductions: {
+        recoverables: roundMoney(totalRecoverables),
+        schemeDeductions: roundMoney(totalSchemeDeductions + transportPenalty),
+      },
+    },
+  };
+}
+
+async function summarizeLiveCycleMetrics(cycle, cycleEntries) {
+  const totalMilkLitres = sum(cycleEntries, (entry) => Number(entry.qty || 0));
+  const schemes = await Scheme.find({ isActive: true }).lean();
+  const cycleClaims = cycle
+    ? await Claim.find({ billingCycleId: String(cycle._id), status: "APPLIED" }).lean()
+    : [];
+  const recoverables = await Recoverable.find({ status: "ACTIVE", remainingAmount: { $gt: 0 } }).lean();
+
+  const bySociety = new Map();
+  for (const entry of cycleEntries) {
+    const key = entry.societyId;
+    const bucket = bySociety.get(key) || {
+      societyId: key,
+      totalMilkQty: 0,
+      milkAmount: 0,
+      totalFatWeighted: 0,
+      totalSnfWeighted: 0,
+      transportPenalty: 0,
+    };
+    const qty = Number(entry.qty || 0);
+    bucket.totalMilkQty += qty;
+    bucket.milkAmount += Number(entry.amount || 0);
+    bucket.totalFatWeighted += Number(entry.fat || 0) * qty;
+    bucket.totalSnfWeighted += Number(entry.snf || 0) * qty;
+    bucket.transportPenalty += Number(entry.transportPenalty || 0);
+    bySociety.set(key, bucket);
+  }
+
+  let totalMilkAmount = 0;
+  let totalClaims = 0;
+  let totalSchemeBenefits = 0;
+  let totalRecoverables = 0;
+  let totalSchemeDeductions = 0;
+  let transportPenalty = 0;
+
+  for (const bucket of bySociety.values()) {
+    totalMilkAmount += bucket.milkAmount;
+    transportPenalty += bucket.transportPenalty;
+
+    const summary = {
+      totalMilkQty: bucket.totalMilkQty,
+      milkAmount: bucket.milkAmount,
+      averageFat: bucket.totalMilkQty > 0 ? bucket.totalFatWeighted / bucket.totalMilkQty : 0,
+      averageSnf: bucket.totalMilkQty > 0 ? bucket.totalSnfWeighted / bucket.totalMilkQty : 0,
+      transportPenalty: bucket.transportPenalty,
+    };
+
+    const societyClaims = cycleClaims.filter(
+      (claim) => claim.societyId === bucket.societyId || claim.societyId === "ALL"
+    );
+    totalClaims += sum(societyClaims, (claim) => claim.amount);
+
+    const activeRecoverables = recoverables.filter(
+      (recoverable) => recoverable.societyId === bucket.societyId || recoverable.societyId === "ALL"
+    );
+    for (const recoverable of activeRecoverables) {
+      const installment = Math.min(
+        Number(recoverable.installmentAmount || 0),
+        Number(recoverable.remainingAmount || 0)
+      );
+      if (installment > 0) totalRecoverables += installment;
+    }
+
+    const applicableSchemes = schemes.filter(
+      (scheme) => isSchemeApplicable(scheme, bucket.societyId) && passesCondition(scheme, summary)
+    );
+    for (const scheme of applicableSchemes) {
+      const amount = roundMoney(calculateSchemeAmount(scheme, summary));
+      if (amount <= 0) continue;
+      if (scheme.type === "DEDUCTION") totalSchemeDeductions += amount;
+      else totalSchemeBenefits += amount;
+    }
+  }
+
+  const totalPayable = roundMoney(totalMilkAmount + totalClaims + totalSchemeBenefits);
+  const totalDeductions = roundMoney(totalRecoverables + totalSchemeDeductions + transportPenalty);
+  const netPayable = roundMoney(totalPayable - totalDeductions);
+
+  return {
+    totalMilkLitres: roundMoney(totalMilkLitres),
+    totalMilkValue: roundMoney(totalMilkAmount),
+    totalPayable,
+    totalDeductions,
+    netPayable,
+    breakdown: {
+      additions: {
+        milkValue: roundMoney(totalMilkAmount),
+        claims: roundMoney(totalClaims),
+        schemeBenefits: roundMoney(totalSchemeBenefits),
+      },
+      deductions: {
+        recoverables: roundMoney(totalRecoverables),
+        schemeDeductions: roundMoney(totalSchemeDeductions + transportPenalty),
+      },
+    },
+  };
+}
+
 async function calculateCycleBilling(req, cycle) {
   const entries = await MilkEntry.find({ date: { $gte: cycle.startDate, $lte: cycle.endDate } });
   const societies = await Society.find({}, "societyId societyName district").lean();
@@ -420,50 +549,24 @@ export async function getAccountsDashboard(req, res) {
   const societies = await Society.find().lean();
   const societyIds = societies.map((s) => s.societyId);
 
-  // If we have stored SocietyBilling rows for this cycle, derive metrics from them
-  let metrics;
-  if (billingRows && billingRows.length) {
-    const societyCount = societyIds.length || billingRows.length;
-    const totalMilkValue = sum(billingRows, (row) => Number(row.milkAmount || 0));
-    const liveAdjustments = await getLiveCycleAdjustments(String(cycle._id));
-    const storedClaims = sum(billingRows, (row) => Number(row.totalClaims || 0));
-    const storedSchemeBenefits = sum(billingRows, (row) => Number(row.totalSchemeBenefits || 0));
-    const storedRecoverables = sum(billingRows, (row) => Number(row.totalRecoverables || 0));
-    const storedSchemeDeductions = sum(billingRows, (row) => Number(row.totalSchemeDeductions || 0));
-    const totalClaims = liveAdjustments.claims || storedClaims;
-    const totalSchemeBenefits = liveAdjustments.schemeBenefits || storedSchemeBenefits;
-    const totalRecoverables = liveAdjustments.recoverables || storedRecoverables;
-    const totalSchemeDeductions = liveAdjustments.schemeDeductions || storedSchemeDeductions;
-    const totalPayable = roundMoney(totalMilkValue + totalClaims * societyCount + totalSchemeBenefits * societyCount);
-    const totalDeductions = roundMoney((totalRecoverables + totalSchemeDeductions) * societyCount);
-    const netPayable = roundMoney(totalPayable - totalDeductions);
+  const milkCow = sum(cycleEntries, (entry) => (entry.milkType === "Cow" ? entry.qty : 0));
+  const milkBuffalo = sum(cycleEntries, (entry) => (entry.milkType === "Buffalo" ? entry.qty : 0));
+  const totalMilkLitres = sum(cycleEntries, (entry) => Number(entry.qty || 0));
 
-    metrics = {
-      totalMilkValue: roundMoney(totalMilkValue),
-      totalPayable,
-      totalDeductions,
-      netPayable,
-      breakdown: {
-        additions: {
-          milkValue: roundMoney(totalMilkValue),
-          claims: roundMoney(totalClaims * societyCount),
-          schemeBenefits: roundMoney(totalSchemeBenefits * societyCount),
-        },
-        deductions: { recoverables: roundMoney(totalRecoverables * societyCount), schemeDeductions: roundMoney(totalSchemeDeductions * societyCount) },
-      },
-    };
+  let metrics;
+  if (cycle && ["LOCKED", "PAID"].includes(cycle.status) && billingRows.length) {
+    metrics = metricsFromBillingRows(billingRows, totalMilkLitres);
+  } else if (cycle) {
+    metrics = await summarizeLiveCycleMetrics(cycle, cycleEntries);
   } else {
-    // Use new billing calculation across raw data
     metrics = await getDashboardMetrics(
       billingCycleKey,
       activeCycle.startDate,
       activeCycle.endDate,
       societyIds
     );
+    metrics.totalMilkLitres = roundMoney(totalMilkLitres);
   }
-
-  const milkCow = sum(cycleEntries, (entry) => (entry.milkType === "Cow" ? entry.qty : 0));
-  const milkBuffalo = sum(cycleEntries, (entry) => (entry.milkType === "Buffalo" ? entry.qty : 0));
 
   const recentCycles = await BillingCycle.find().sort({ createdAt: -1 }).limit(6);
   
@@ -495,7 +598,7 @@ export async function getAccountsDashboard(req, res) {
         status: activeCycle.status,
       },
       cards: {
-        totalMilkQty: metrics.totalMilkValue,
+        totalMilkQty: metrics.totalMilkLitres ?? totalMilkLitres,
         totalPayable: metrics.totalPayable,
         totalDeductions: metrics.totalDeductions,
         netPayout: metrics.netPayable,

@@ -1,7 +1,8 @@
-﻿import express from "express";
+import express from "express";
 import { 
   getDashboardStats,
-  listUsers, 
+  listUsers,
+  listUserHierarchyOptions,
   createUser, 
   updateUserAuth,
   deleteUser,
@@ -19,6 +20,7 @@ router.use(authRequired, requireRole(["Admin"]));
 router.get("/stats", getDashboardStats);
 
 router.get("/users", listUsers);
+router.get("/hierarchy-options", listUserHierarchyOptions);
 
 router.post(
   "/users",

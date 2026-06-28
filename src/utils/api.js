@@ -39,6 +39,7 @@ async function request(path, options = {}) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const res = await fetch(`${API_BASE}${path}`, {
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -233,6 +234,7 @@ export function getAccountReportSummary(params = {}) {
 
 export function listDairyShipments(params = {}) {
   const search = new URLSearchParams();
+  if (params.dairyId) search.set("dairyId", params.dairyId);
   if (params.dairyUnit) search.set("dairyUnit", params.dairyUnit);
   if (params.date) search.set("date", params.date);
   const qs = search.toString();
@@ -339,6 +341,7 @@ export function getAdminDashboard() {
 export function getDairyDashboard(params = {}) {
   const search = new URLSearchParams();
   if (params.dairyUnit) search.set("dairyUnit", params.dairyUnit);
+  if (params.dairyId) search.set("dairyId", params.dairyId);
   if (params.date) search.set("date", params.date);
   if (params.from) search.set("from", params.from);
   if (params.to) search.set("to", params.to);
@@ -511,6 +514,10 @@ export async function uploadComplaintFile(file) {
 
 export function listUsers() {
   return request("/admin/users");
+}
+
+export function getHierarchyOptions() {
+  return request("/admin/hierarchy-options");
 }
 
 export function createUser(body) {

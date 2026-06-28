@@ -80,12 +80,12 @@ export default function DairyDashboard() {
       setLoading(true);
       setError("");
       try {
-        const dairyUnit = localStorage.getItem("dairy_unit") || "";
+        const dairyId = localStorage.getItem("dairy_id") || "";
         const sessionMap = { Morning: "M", Evening: "E" };
         const today = new Date().toISOString().slice(0, 10);
 
         const params = { date: selectedDate || today };
-        if (dairyUnit) params.dairyUnit = dairyUnit;
+        if (dairyId) params.dairyId = dairyId;
         if (selectedShift !== "All") {
           params.session = sessionMap[selectedShift] || "";
         }

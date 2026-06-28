@@ -67,14 +67,14 @@ export function getShipmentStatusLabel(status) {
   return STATUS_LABELS[status] || "Pending";
 }
 
-function getDairyUnit() {
-  return localStorage.getItem("dairy_unit") || localStorage.getItem("dairyUnit") || "";
+function getDairyId() {
+  return localStorage.getItem("dairy_id") || "";
 }
 
 export async function fetchShipments(params = {}) {
-  const dairyUnit = params.dairyUnit || getDairyUnit();
+  const dairyId = params.dairyId || getDairyId();
   const date = params.date || new Date().toISOString().slice(0, 10);
-  const payload = await listDairyShipments({ dairyUnit, date });
+  const payload = await listDairyShipments({ dairyId, date });
   return Array.isArray(payload?.data) ? payload.data : [];
 }
 

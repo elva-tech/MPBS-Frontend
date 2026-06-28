@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchSocieties, getMilkSessionStatus, createVerification, listNotificationsForRole, listVerifications } from "../../utils/api";
 import "./SocietyMilkVerification.css";
 import EntryTable from "./components/EntryTable";
@@ -9,9 +9,7 @@ import DemoUnlockToggle from "../../shared/components/DemoUnlockToggle";
 import { isDemoUnlockEnabled } from "../../utils/demoMode";
 import {
   BMC_USER,
-  calcEntry,
   calcSession,
-  compareVals,
   genReport,
   isRowValid,
   emptyRow,
@@ -65,33 +63,6 @@ function bmcEntriesToRows(entries = []) {
   );
   while (rows.length < 2) rows.push(emptyRow());
   return rows;
-}
-
-function apiVerificationToRecord(apiRecord, societyName) {
-  const rawEntries = dedupeRowsByType(
-    (apiRecord.entries || []).map((e) => ({
-      type: e.type || e.milkType,
-      fat: e.fat,
-      snf: e.snf,
-      qty: e.qty,
-    }))
-  );
-  const session = calcSession(rawEntries);
-  const bmcEntries = apiRecord.bmcEntries?.length
-    ? dedupeRowsByType(apiRecord.bmcEntries)
-    : null;
-  return {
-    society: societyName,
-    savedAt: new Date(apiRecord.updatedAt || apiRecord.createdAt).toLocaleString("en-IN"),
-    savedBy: apiRecord.savedBy || "",
-    verifyChoice:
-      apiRecord.verifyChoice === "YES" ? "YES ? Values Match" : "NO ? BMC Values Entered",
-    entries: session.entries,
-    totalQty: session.totalQty,
-    totalAmt: session.totalAmtFmt,
-    bmcEntries,
-    comparisonStatus: apiRecord.comparisonStatus,
-  };
 }
 
 function useClock() {
@@ -152,7 +123,6 @@ export default function MilkVerification() {
   const [verifyChoice, setVerifyChoice] = useState(null);
 
   const [saveModal, setSaveModal] = useState(null);
-  const [savedRecord, setSavedRecord] = useState(null);
   const [verificationLocked, setVerificationLocked] = useState(false);
   const [societySessionSaved, setSocietySessionSaved] = useState(false);
   const [societySessionEditing, setSocietySessionEditing] = useState(false);
@@ -251,7 +221,6 @@ export default function MilkVerification() {
     setVerificationLocked(false);
     setSocietySessionSaved(false);
     setSocietySessionEditing(false);
-    setSavedRecord(null);
 
     try {
       const verificationRes = await listVerifications({
@@ -261,8 +230,6 @@ export default function MilkVerification() {
       });
       existingVerification = verificationRes?.data?.[0];
       if (existingVerification) {
-        const record = apiVerificationToRecord(existingVerification, soc.name);
-        setSavedRecord(record);
         setVerificationLocked(true);
         setVerifyChoice(existingVerification.verifyChoice === "YES" ? "yes" : "no");
         if (existingVerification.bmcEntries?.length) {
@@ -313,7 +280,6 @@ export default function MilkVerification() {
     const name = e.target.value;
     if (!name) {
       setSelectedSoc(null);
-      setSavedRecord(null);
       setVerificationLocked(false);
       setSocietySessionSaved(false);
       setSocietySessionEditing(false);
@@ -486,7 +452,6 @@ export default function MilkVerification() {
         : `Verification saved for ${selectedSoc.name}. BMC values recorded.`
     );
     setTimeout(() => setSaveSuccess(""), 4000);
-    setSavedRecord(record);
     setSaveModal(record);
   };
 
@@ -538,28 +503,6 @@ export default function MilkVerification() {
 
   const statusClass = selectedSoc?.status === "verified" ? "verified" : "not-verified";
   const statusText = selectedSoc?.status === "verified" ? "Verified" : "Not Verified";
-
-  const displayedSavedEntries = useMemo(() => {
-    if (!savedRecord?.entries?.length) return [];
-    const seen = new Set();
-    return savedRecord.entries.filter((entry) => {
-      const key = String(entry.type || "").trim().toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [savedRecord]);
-
-  const displayedBmcEntries = useMemo(() => {
-    if (!savedRecord?.bmcEntries?.length) return [];
-    const seen = new Set();
-    return savedRecord.bmcEntries.filter((entry) => {
-      const key = String(entry.type || "").trim().toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [savedRecord]);
 
   return (
     <div className="bmc-verify">
@@ -700,144 +643,6 @@ export default function MilkVerification() {
                 </button>
               )}
             </div>
-
-            {savedRecord && (
-              <div className="saved-record-wrap">
-                <div className="saved-record-head">
-                  <div className="saved-record-title">Saved Verification Details</div>
-                  <div className="saved-record-meta">
-                    {savedRecord.savedAt} | {savedRecord.savedBy}
-                  </div>
-                </div>
-
-                <div className="saved-record-badges">
-                  <span className="saved-badge">Status: {savedRecord.comparisonStatus}</span>
-                  <span className="saved-badge">Physical Check: {savedRecord.verifyChoice}</span>
-                  <span className="saved-badge">Total Qty: {savedRecord.totalQty} L</span>
-                  <span className="saved-badge">Total Amount: {savedRecord.totalAmt}</span>
-                </div>
-
-                <div className="saved-section-title">Society Entry Details</div>
-                <table className="society-main-table saved-table">
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Fat%</th>
-                      <th>SNF%</th>
-                      <th>Qty (L)</th>
-                      <th>Rate</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayedSavedEntries.map((entry, idx) => (
-                      <tr key={"soc-" + idx}>
-                        <td>{entry.type}</td>
-                        <td>{entry.fat}</td>
-                        <td>{entry.snf}</td>
-                        <td>{entry.qty}</td>
-                        <td>{entry.rateFmt}</td>
-                        <td>{entry.amtFmt}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {displayedBmcEntries.length > 0 && (
-                  <>
-                    <div className="saved-section-title">BMC Actual Values</div>
-                    <table className="society-main-table saved-table">
-                      <thead>
-                        <tr>
-                          <th>Type</th>
-                          <th>Fat%</th>
-                          <th>SNF%</th>
-                          <th>Qty (L)</th>
-                          <th>Rate</th>
-                          <th>Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayedBmcEntries.map((entry, idx) => {
-                          const bmcCalc = calcEntry(entry.type, entry.fat, entry.snf, entry.qty);
-                          return (
-                            <tr key={"bmc-" + idx}>
-                              <td>{entry.type}</td>
-                              <td>{entry.fat}</td>
-                              <td>{entry.snf}</td>
-                              <td>{entry.qty}</td>
-                              <td>{bmcCalc.rateFmt}</td>
-                              <td>{bmcCalc.amtFmt}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-
-                    <div className="saved-section-title">Data Comparison (Society vs BMC)</div>
-                    <table className="society-main-table saved-table">
-                      <thead>
-                        <tr>
-                          <th>Type</th>
-                          <th>Source</th>
-                          <th>Fat%</th>
-                          <th>SNF%</th>
-                          <th>Qty (L)</th>
-                          <th>Rate</th>
-                          <th>Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayedSavedEntries.map((socEntry, idx) => {
-                          const bmcEntry =
-                            displayedBmcEntries.find((entry) => entry.type === socEntry.type) ||
-                            displayedBmcEntries[idx];
-
-                          if (!bmcEntry) return null;
-
-                          const bmcCalc = calcEntry(bmcEntry.type, bmcEntry.fat, bmcEntry.snf, bmcEntry.qty);
-                          const cmp = compareVals(socEntry, bmcEntry);
-
-                          const withFlag = (fieldName, value) => {
-                            if (cmp.fields[fieldName].ok) return value;
-                            const isUp = cmp.fields[fieldName].bv > cmp.fields[fieldName].sv;
-                            return (
-                              <>
-                                {value}{" "}
-                                <span className={`saved-delta ${isUp ? "up" : "down"}`}>{isUp ? "▲" : "▼"}</span>
-                              </>
-                            );
-                          };
-
-                          return (
-                            <Fragment key={"cmp-" + idx}>
-                              <tr>
-                                <td>{socEntry.type}</td>
-                                <td>Society</td>
-                                <td>{socEntry.fat}</td>
-                                <td>{socEntry.snf}</td>
-                                <td>{socEntry.qty}</td>
-                                <td>{socEntry.rateFmt}</td>
-                                <td>{socEntry.amtFmt}</td>
-                              </tr>
-                              <tr className="saved-bmc-row">
-                                <td></td>
-                                <td>BMC</td>
-                                <td>{withFlag("fat", bmcEntry.fat)}</td>
-                                <td>{withFlag("snf", bmcEntry.snf)}</td>
-                                <td>{withFlag("qty", bmcEntry.qty)}</td>
-                                <td>{bmcCalc.rateFmt}</td>
-                                <td>{bmcCalc.amtFmt}</td>
-                              </tr>
-                            </Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         ) : (
           <div className="empty-state">

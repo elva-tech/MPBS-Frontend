@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import { calculateSocietyBilling, hydrateAccountSocieties } from "./engine";
-import { fetchAccountState, markInvoiceSentLocal } from "./accountService";
+import { markInvoiceSentLocal } from "./accountService";
 import { getMilkEntries } from "../../utils/api";
 
 export default function Invoices() {
