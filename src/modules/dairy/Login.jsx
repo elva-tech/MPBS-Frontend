@@ -1,17 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchBmcUnits, login } from "../../utils/api";
+import { login } from "../../utils/api";
 import { usePopup } from "../../shared/context/PopupContext";
 
 export default function DairyLogin() {
   const navigate = useNavigate();
   const { showPopup } = usePopup();
   const [showPassword, setShowPassword] = useState(false);
-  const [bmcUnits, setBmcUnits] = useState([]);
-  const [loadingUnits, setLoadingUnits] = useState(true);
 
   const [form, setForm] = useState({
-    bmcId: "",
     username: "",
     password: "",
   });
@@ -21,28 +18,6 @@ export default function DairyLogin() {
       "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='rgba(255,255,255,0.6)'><circle cx='10' cy='10' r='2.2'/><circle cx='40' cy='10' r='2.2'/><circle cx='70' cy='10' r='2.2'/><circle cx='100' cy='10' r='2.2'/><circle cx='10' cy='40' r='2.2'/><circle cx='40' cy='40' r='2.2'/><circle cx='70' cy='40' r='2.2'/><circle cx='100' cy='40' r='2.2'/><circle cx='10' cy='70' r='2.2'/><circle cx='40' cy='70' r='2.2'/><circle cx='70' cy='70' r='2.2'/><circle cx='100' cy='70' r='2.2'/><circle cx='10' cy='100' r='2.2'/><circle cx='40' cy='100' r='2.2'/><circle cx='70' cy='100' r='2.2'/><circle cx='100' cy='100' r='2.2'/></g></svg>"
     );
 
-  useEffect(() => {
-    let active = true;
-    fetchBmcUnits()
-      .then((res) => {
-        if (!active) return;
-        const units = Array.isArray(res?.data) ? res.data : [];
-        setBmcUnits(units);
-        if (units[0]?.id) {
-          setForm((prev) => ({ ...prev, bmcId: units[0].id }));
-        }
-      })
-      .catch(() => {
-        if (active) setBmcUnits([]);
-      })
-      .finally(() => {
-        if (active) setLoadingUnits(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -50,11 +25,6 @@ export default function DairyLogin() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!form.bmcId) {
-      await showPopup({ message: "Select a BMC created by admin before logging in.", type: "error" });
-      return;
-    }
 
     try {
       const res = await login({ username: form.username, password: form.password });
@@ -72,6 +42,9 @@ export default function DairyLogin() {
         });
         return;
       }
+
+      localStorage.removeItem("dairy_bmc_id");
+      localStorage.removeItem("dairy_unit");
       localStorage.setItem("auth_token", res.token);
       localStorage.setItem("dairy_token", res.token);
       localStorage.setItem("dairy_role", user.role);
@@ -80,8 +53,6 @@ export default function DairyLogin() {
       localStorage.setItem("dairy_auth", "true");
       localStorage.setItem("dairy_name", user.username);
       localStorage.setItem("dairy_id", user.username);
-      localStorage.setItem("dairy_bmc_id", form.bmcId);
-      localStorage.setItem("dairy_unit", form.bmcId);
       navigate("/dairy/dashboard");
     } catch (err) {
       await showPopup({ message: err.message || "Invalid Username or Password", type: "error" });
@@ -131,27 +102,6 @@ export default function DairyLogin() {
             </p>
 
             <form onSubmit={handleSubmit} className="mt-7 space-y-4">
-              <select
-                name="bmcId"
-                value={form.bmcId}
-                onChange={handleChange}
-                disabled={loadingUnits || bmcUnits.length === 0}
-                required
-                className="w-full rounded-lg border border-[#d7dbe3] bg-white px-4 py-[11px] text-[13.5px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2e5d7b] disabled:opacity-60"
-              >
-                {loadingUnits ? (
-                  <option value="">Loading BMC list...</option>
-                ) : bmcUnits.length === 0 ? (
-                  <option value="">No approved BMC — ask admin to create one</option>
-                ) : (
-                  bmcUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.label}
-                    </option>
-                  ))
-                )}
-              </select>
-
               <input
                 type="text"
                 name="username"
@@ -193,8 +143,7 @@ export default function DairyLogin() {
 
               <button
                 type="submit"
-                disabled={loadingUnits || !bmcUnits.length}
-                className="mt-2 w-full rounded-lg bg-[#2e5d7b] py-[11px] text-[14px] font-semibold text-white shadow-[0_10px_18px_rgba(46,93,123,0.22)] transition hover:bg-[#264d66] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 w-full rounded-lg bg-[#2e5d7b] py-[11px] text-[14px] font-semibold text-white shadow-[0_10px_18px_rgba(46,93,123,0.22)] transition hover:bg-[#264d66]"
               >
                 Login
               </button>
