@@ -1,4 +1,10 @@
-import { getModuleFromPath, getModuleToken } from "./authSession.js";
+import {
+  getModuleFromLoginPath,
+  getModuleFromPath,
+  getModuleToken,
+  isLoginPath,
+  prepareModuleLogin,
+} from "./authSession.js";
 import { isDemoUnlockEnabled } from "./demoMode.js";
 
 const rawApiBase = (import.meta.env.VITE_API_BASE || "").trim();
@@ -10,8 +16,15 @@ function backendUnavailableMessage() {
 
 function getToken() {
   const pathname = window.location?.pathname || "";
+  if (isLoginPath(pathname)) return "";
   const module = getModuleFromPath(pathname);
+  if (!module) return "";
   return getModuleToken(module) || localStorage.getItem("auth_token") || "";
+}
+
+function clearSessionOnUnauthorized(pathname = "") {
+  const module = getModuleFromPath(pathname) || getModuleFromLoginPath(pathname);
+  if (module) prepareModuleLogin(module);
 }
 
 function getUploadToken() {
@@ -68,6 +81,14 @@ async function request(path, options = {}) {
             `${issue.path.join(".")}: ${issue.message}`
           ).join("; ");
           message += ` - ${details}`;
+        }
+
+        if (
+          !skipAuth &&
+          res.status === 401 &&
+          /missing token|invalid token|token expired/i.test(message)
+        ) {
+          clearSessionOnUnauthorized(window.location?.pathname || "");
         }
 
         const apiError = new Error(message);
@@ -351,10 +372,19 @@ export function getDairyDashboard(params = {}) {
 }
 
 export function login(body) {
+  const pathname = window.location?.pathname || "";
+  const module = getModuleFromLoginPath(pathname);
+  prepareModuleLogin(module);
+
   return request("/auth/login", {
     method: "POST",
     body: JSON.stringify(body),
     skipAuth: true,
+  }).then((res) => {
+    if (!res?.token || typeof res.token !== "string") {
+      throw new Error("Login failed - invalid token received from server");
+    }
+    return res;
   });
 }
 
