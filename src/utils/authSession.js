@@ -21,7 +21,7 @@ const MODULE_KEYS = {
     flag: "dairy_auth",
     token: "dairy_token",
     role: "dairy_role",
-    extras: ["dairy_name", "dairy_id", "dairy_unit"],
+    extras: ["dairy_name", "dairy_id", "dairy_bmc_id", "dairy_unit"],
   },
   account: {
     flag: "account_auth",
