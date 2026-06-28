@@ -43,7 +43,40 @@ const MODULE_KEYS = {
   },
 };
 
+export function isLoginPath(pathname = "") {
+  if (!pathname) return false;
+  if (pathname === "/login" || pathname === "/forgot-password") return true;
+  if (pathname.startsWith("/login/")) return true;
+  return /\/login$/.test(pathname);
+}
+
+export function getModuleFromLoginPath(pathname = "") {
+  if (!isLoginPath(pathname)) return null;
+  if (pathname.startsWith("/admin/login") || pathname.startsWith("/login/admin")) {
+    return "admin";
+  }
+  if (pathname.startsWith("/dairy/login") || pathname.startsWith("/login/dairy")) {
+    return "dairy";
+  }
+  if (pathname.startsWith("/bmc/login") || pathname.startsWith("/login/bmc")) {
+    return "bmc";
+  }
+  if (pathname.startsWith("/audit/login")) return "audit";
+  if (pathname.startsWith("/account/login") || pathname.startsWith("/login/account")) {
+    return "account";
+  }
+  if (
+    pathname.startsWith("/procurement/login") ||
+    pathname.startsWith("/login/procurement") ||
+    pathname.startsWith("/p-and-i/login")
+  ) {
+    return "procurement";
+  }
+  return "society";
+}
+
 export function getModuleFromPath(pathname = "") {
+  if (isLoginPath(pathname)) return null;
   if (pathname.startsWith("/admin")) return "admin";
   if (pathname.startsWith("/bmc")) return "bmc";
   if (pathname.startsWith("/procurement") || pathname.startsWith("/p-and-i")) {
@@ -53,6 +86,14 @@ export function getModuleFromPath(pathname = "") {
   if (pathname.startsWith("/dairy")) return "dairy";
   if (pathname.startsWith("/audit")) return "audit";
   return "society";
+}
+
+export function prepareModuleLogin(module) {
+  if (!module) return;
+  clearModuleSession(module);
+  localStorage.removeItem("auth_token");
+  localStorage.removeItem("user_role");
+  localStorage.removeItem("user_id");
 }
 
 /** @deprecated Prefer module-scoped sessions; clearing other modules logs out open tabs. */
