@@ -1,4 +1,4 @@
-import { fetchBillingCycles, fetchSocieties } from "../../utils/api";
+import { fetchAccountState } from "./accountService";
 
 const STORAGE_KEY = "account_module_state_v2";
 const STATE_VERSION = 2;
@@ -241,39 +241,21 @@ function normalizeSocietyList(list = []) {
 }
 
 export async function hydrateAccountSocieties() {
-  if (typeof window === "undefined") return loadAccountState();
-
-  const current = loadAccountState();
-
+  if (typeof window === "undefined") return createInitialState();
   try {
-    const [societiesPayload, billingCyclesPayload] = await Promise.all([fetchSocieties(), fetchBillingCycles()]);
-    const societies = normalizeSocietyList(Array.isArray(societiesPayload?.data) ? societiesPayload.data : societiesPayload || []);
-    const billingCycles = normalizeCycleList(Array.isArray(billingCyclesPayload?.data) ? billingCyclesPayload.data : billingCyclesPayload || []);
-
-    if (!societies.length) return current;
-
-    const currentWindow = getBillingCycleWindow(new Date());
-    const currentCycle = buildCycleFromWindow(currentWindow, "OPEN");
-    const selectedCycleId =
-      (current.selectedCycleId && billingCycles.some((cycle) => cycle.id === current.selectedCycleId) && current.selectedCycleId) ||
-      billingCycles.find((cycle) => cycle.id === currentWindow.code)?.id ||
-      billingCycles.at(-1)?.id ||
-      currentCycle.id;
-
-    const merged = {
-      ...current,
-      societies,
-      cycles: billingCycles.length ? billingCycles : [currentCycle],
-      selectedCycleId,
-      selectedSocietyId: societies.some((society) => society.id === current.selectedSocietyId)
-        ? current.selectedSocietyId
-        : societies[0]?.id || current.selectedSocietyId,
-    };
-
-    saveAccountState(merged);
-    return merged;
+    return await fetchAccountState();
   } catch {
-    return current;
+    const fallback = loadAccountState();
+    return {
+      ...fallback,
+      societies: fallback.societies || [],
+      cycles: fallback.cycles || [],
+      schemes: fallback.schemes || [],
+      claims: fallback.claims || [],
+      recoverables: fallback.recoverables || [],
+      milkData: fallback.milkData || [],
+      billingResults: fallback.billingResults || {},
+    };
   }
 }
 
@@ -292,11 +274,11 @@ function pushAudit(state, action, details = {}) {
 }
 
 function getCycle(state, cycleId) {
-  return state.cycles.find((item) => item.id === cycleId);
+  return (state.cycles || []).find((item) => item.id === cycleId);
 }
 
 function getMilkRows(state, cycleId, societyId) {
-  return state.milkData.filter((item) => item.cycleId === cycleId && item.societyId === societyId);
+  return (state.milkData || []).filter((item) => item.cycleId === cycleId && item.societyId === societyId);
 }
 
 function getMilkRow(state, cycleId, societyId) {
@@ -350,12 +332,12 @@ export function calculateSocietyBilling(state, cycleId, societyId) {
   const milkRows = getMilkRows(state, cycleId, societyId);
   const milkSummary = summarizeMilkRows(milkRows);
 
-  const appliedClaims = state.claims.filter(
+  const appliedClaims = (state.claims || []).filter(
     (item) => item.cycleId === cycleId && adjustmentAppliesToSociety(item, societyId) && item.status === "APPLIED"
   );
   const totalClaims = appliedClaims.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const activeSchemes = state.schemes.filter(
+  const activeSchemes = (state.schemes || []).filter(
     (scheme) => scheme.isActive && schemeAppliesToSociety(scheme, societyId) && conditionPasses(scheme, milkSummary)
   );
 
@@ -377,7 +359,7 @@ export function calculateSocietyBilling(state, cycleId, societyId) {
 
   const schemeDeductions = schemeLineItems.filter((item) => item.amount < 0);
 
-  const activeRecoverables = state.recoverables.filter(
+  const activeRecoverables = (state.recoverables || []).filter(
     (item) => adjustmentAppliesToSociety(item, societyId) && item.status === "ACTIVE" && Number(item.remainingAmount || 0) > 0
   );
   const recoverableBreakdown = activeRecoverables.map((item) => ({
@@ -672,14 +654,15 @@ export function markInvoiceSent(cycleId, societyId) {
 }
 
 export function getCycleBillingRows(state, cycleId) {
-  return state.billingResults[cycleId] || [];
+  return (state.billingResults || {})[cycleId] || [];
 }
 
 export function getOrCalculateCycleRows(state, cycleId) {
-  if (!state.billingResults[cycleId]) {
-    return state.societies.map((society) => calculateSocietyBilling(state, cycleId, society.id));
+  const billingResults = state.billingResults || {};
+  if (!billingResults[cycleId]) {
+    return (state.societies || []).map((society) => calculateSocietyBilling(state, cycleId, society.id));
   }
-  return state.billingResults[cycleId];
+  return billingResults[cycleId];
 }
 
 function compareYearMonth(a, b) {
@@ -789,7 +772,7 @@ export function buildDashboardMetrics(state, cycleId) {
 }
 
 export function buildTrendData(state, fromMonthId = null) {
-  const sortedCycles = [...state.cycles].sort(compareCycleDates);
+  const sortedCycles = [...(state.cycles || [])].sort(compareCycleDates);
   let dataSource = sortedCycles;
   
   // If a starting month is specified, find it and return from that point onwards

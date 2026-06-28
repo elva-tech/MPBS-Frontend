@@ -1,6 +1,7 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import { fetchRateAndAmount, getMilkEntries, getSocietyDashboard } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
 import {
   ChevronDown,
   Download,
@@ -9,6 +10,7 @@ import {
 } from "lucide-react";
 
 export default function RateSheet() {
+  const { showPopup } = usePopup();
   const [reportSelections, setReportSelections] = useState({
     "Cattle Feed & Mineral Mixture": true,
     Revenue: true,
@@ -121,9 +123,10 @@ export default function RateSheet() {
         (changedField === "fat" && !isFatValid) ||
         (changedField === "snf" && !isSnfValid)
       ) {
-        window.alert(
-          "Fat % must be between 3 and 6, and SNF % must be between 8 and 9."
-        );
+        await showPopup({
+          message: "Fat % must be between 3 and 6, and SNF % must be between 8 and 9.",
+          type: "warning",
+        });
       }
       setCalcRate("");
       return;
@@ -165,7 +168,10 @@ export default function RateSheet() {
     });
 
     if (hasInvalidPeriod) {
-      window.alert("Please select both From and To dates for all selected reports.");
+      await showPopup({
+        message: "Please select both From and To dates for all selected reports.",
+        type: "warning",
+      });
       return;
     }
 
@@ -247,7 +253,10 @@ export default function RateSheet() {
         })
       );
     } catch (error) {
-      window.alert(`Failed to fetch report data: ${error.message || "Unknown error"}`);
+      await showPopup({
+        message: `Failed to fetch report data: ${error.message || "Unknown error"}`,
+        type: "error",
+      });
       setDownloadLoading(false);
       return;
     }
@@ -503,14 +512,14 @@ export default function RateSheet() {
   };
 
   return (
-    <div className="p-6 bg-[#fbfcfe] select-none">
+    <div className="module-page bg-[#fbfcfe] select-none">
       <h1 className="text-[18px] font-semibold text-slate-800 mb-4">
         Reports Download
       </h1>
 
-      <section className="bg-white border border-[#e7ebf1] rounded-xl p-4 mb-6">
-        <div className="grid grid-cols-12 gap-4 items-stretch">
-          <div className="col-span-12 lg:col-span-9 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="w-full rounded-xl border border-[#e7ebf1] bg-white p-4 mb-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-stretch">
+          <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-3">
             {reportCards.map((card) => (
               <div
                 key={card.title}
@@ -576,13 +585,13 @@ export default function RateSheet() {
             ))}
           </div>
 
-          <div className="col-span-12 lg:col-span-3 flex items-center justify-center lg:justify-end">
+          <div className="flex items-center justify-center xl:justify-end xl:min-w-[180px]">
             <button
               onClick={handleDownloadAll}
               disabled={
                 !Object.values(reportSelections).some((selected) => selected) || downloadLoading
               }
-              className="inline-flex items-center gap-2 text-[13px] font-semibold text-white bg-[#1E4B6B] px-5 py-2.5 rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              className="module-btn w-full xl:w-auto text-[13px] font-semibold text-white bg-[#1E4B6B] shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download size={16} />
               {downloadLoading ? "Preparing..." : "Download All"}
@@ -595,9 +604,9 @@ export default function RateSheet() {
         Milk Rates
       </h2>
 
-      <section className="bg-[#f7fbff] border border-[#dbe7f3] rounded-xl p-4">
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-4 lg:col-span-3">
+      <section className="w-full rounded-xl border border-[#dbe7f3] bg-[#f7fbff] p-4">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="xl:col-span-3">
             <div className="bg-white border border-[#e1e7ef] rounded-xl p-4 shadow-[0_2px_8px_rgba(15,23,42,0.08)]">
               <div className="text-[13px] font-semibold text-slate-700 mb-3">
                 Calculate Rate
@@ -644,9 +653,10 @@ export default function RateSheet() {
                           Number.isFinite(nextFatValue) &&
                           (nextFatValue < 3 || nextFatValue > 6)
                         ) {
-                          window.alert(
-                            "Fat % must be between 3 and 6, and SNF % must be between 8 and 9."
-                          );
+                          void showPopup({
+                            message: "Fat % must be between 3 and 6, and SNF % must be between 8 and 9.",
+                            type: "warning",
+                          });
                           setCalcFat("0");
                           setCalcRate("");
                           return;
@@ -674,9 +684,10 @@ export default function RateSheet() {
                           Number.isFinite(nextSnfValue) &&
                           (nextSnfValue < 8 || nextSnfValue > 9)
                         ) {
-                          window.alert(
-                            "Fat % must be between 3 and 6, and SNF % must be between 8 and 9."
-                          );
+                          void showPopup({
+                            message: "Fat % must be between 3 and 6, and SNF % must be between 8 and 9.",
+                            type: "warning",
+                          });
                           setCalcSnf("0");
                           setCalcRate("");
                           return;
@@ -698,7 +709,7 @@ export default function RateSheet() {
               </div>
             </div>
 
-          <div className="col-span-12 md:col-span-8 lg:col-span-9 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="xl:col-span-9 grid grid-cols-1 gap-4 lg:grid-cols-2">
             {[
               { title: "Buffalo Milk", rows: buffaloRows },
               { title: "Cow Milk", rows: cowRows },
@@ -763,7 +774,7 @@ export default function RateSheet() {
 
           <button
             onClick={handleDownloadRateSheet}
-            className="ml-6 inline-flex items-center gap-2 text-[12px] font-semibold text-white bg-[#1E4B6B] px-4 py-2 rounded-full shadow"
+            className="module-btn-sm ml-4 text-[12px] font-semibold text-white bg-[#1E4B6B] rounded-full shadow"
           >
             <Download size={14} />
             Download Rate Sheet

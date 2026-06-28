@@ -1,13 +1,8 @@
 import { Navigate } from "react-router-dom";
+import { hasModuleSession } from "../../utils/authSession";
 
 export default function AdminAuthGuard({ children }) {
-  const isAuthenticated = localStorage.getItem("admin_auth") === "true";
-  const role = localStorage.getItem("user_role");
-  const token = localStorage.getItem("auth_token");
-
-  const hasValidAdminSession = isAuthenticated && role === "Admin" && !!token;
-
-  if (!hasValidAdminSession) {
+  if (!hasModuleSession("admin", "Admin")) {
     return <Navigate to="/admin/login" replace />;
   }
 

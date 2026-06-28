@@ -22,6 +22,7 @@ import {
 import {
   getAdminDashboard,
 } from "../../utils/api";
+import { litersTooltip, percentTooltip } from "../../shared/charts/tooltips";
 
 const COLOR_PANEL = "#FFFFFF";
 const COLOR_RED = "#1E4B6B";
@@ -252,8 +253,8 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-6" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
-        <div className="mx-auto max-w-[1180px]">
+      <div className="module-page" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
+        <div className="w-full">
           <p className="text-sm text-[#1E4B6B]">Loading dashboard data...</p>
         </div>
       </div>
@@ -262,8 +263,8 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen p-6" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
-        <div className="mx-auto max-w-[1180px]">
+      <div className="module-page" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
+        <div className="w-full">
           <p className="text-sm text-red-600">{error}</p>
         </div>
       </div>
@@ -271,16 +272,16 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
-      <div className="mx-auto max-w-[1180px] space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="module-page" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
+      <div className="w-full space-y-4">
+        <div className="module-stat-grid">
             {topStats.map((item, index) => {
               const Icon = iconMap[item.icon] || Building2;
               const cardStyle = TOP_CARD_STYLES[index % TOP_CARD_STYLES.length];
               return (
                 <div
                   key={item.label}
-                  className="flex h-20 items-center gap-2.5 rounded-lg border px-3 shadow-[0_6px_14px_rgba(15,41,74,0.12)]"
+                  className="module-stat-card flex items-center gap-2.5 rounded-lg border shadow-[0_6px_14px_rgba(15,41,74,0.12)]"
                   style={{
                     background: cardStyle.bg,
                     borderColor: cardStyle.border,
@@ -308,23 +309,24 @@ export default function AdminDashboard() {
             })}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr_1fr]">
+        <div className="module-panel-grid-3">
           <div
-            className="rounded-xl border p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
+            className="module-panel rounded-xl border p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
             style={{ background: COLOR_CARD_BG_A, borderColor: COLOR_CARD_BORDER }}
           >
             <h2 className="text-sm font-semibold" style={{ color: COLOR_TEXT }}>
               Milk Procured
             </h2>
             <div className="mt-5 flex flex-col items-center gap-5 md:flex-row md:items-center md:justify-between">
-              <div className="h-[220px] w-[220px] shrink-0">
-                <PieChart width={220} height={220}>
+              <div className="h-[260px] w-full max-w-[280px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
                     <Pie
                       data={milkProcuredData}
                       dataKey="value"
                       nameKey="name"
-                      cx={110}
-                      cy={110}
+                      cx="50%"
+                      cy="50%"
                       innerRadius={58}
                       outerRadius={90}
                       stroke="none"
@@ -336,6 +338,7 @@ export default function AdminDashboard() {
                       contentStyle={{ borderRadius: 8, border: "1px solid #d5dfec" }}
                     />
                 </PieChart>
+                </ResponsiveContainer>
               </div>
               <BulletLegend items={milkProcuredData} suffix="%" />
             </div>
@@ -353,9 +356,9 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="module-panel-grid-2">
           <div
-            className="rounded-xl border p-4 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
+            className="module-panel rounded-xl border p-4 shadow-[0_8px_18px_rgba(15,41,74,0.08)]"
             style={{ background: COLOR_CARD_BG_A, borderColor: COLOR_CARD_BORDER }}
           >
             <div className="mb-2 flex items-center justify-between">
@@ -374,7 +377,7 @@ export default function AdminDashboard() {
                 ))}
               </select>
             </div>
-            <div className="h-[220px]">
+            <div className="min-h-[280px] h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={filteredMonthlyQualityData} margin={{ top: 15, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="4 5" vertical={false} stroke="#b8cad9" />
@@ -406,7 +409,7 @@ export default function AdminDashboard() {
                   <CartesianGrid stroke="#b8cad9" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "#5b6270", fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "#5b6270", fontSize: 12 }} axisLine={false} tickLine={false} domain={[150, 580]} />
-                  <Tooltip />
+                  <Tooltip formatter={litersTooltip} />
                   <Legend
                     verticalAlign="top"
                     align="right"

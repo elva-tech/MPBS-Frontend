@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../../utils/api";
-import { dairyUnits } from "./mockData";
+import { fetchBmcUnits, login } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
 
 export default function DairyLogin() {
   const navigate = useNavigate();
+  const { showPopup } = usePopup();
   const [showPassword, setShowPassword] = useState(false);
+  const [bmcUnits, setBmcUnits] = useState([]);
+  const [loadingUnits, setLoadingUnits] = useState(true);
 
   const [form, setForm] = useState({
-    dairyUnit: dairyUnits[0],
+    bmcId: "",
     username: "",
     password: "",
   });
@@ -18,6 +21,28 @@ export default function DairyLogin() {
       "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='rgba(255,255,255,0.6)'><circle cx='10' cy='10' r='2.2'/><circle cx='40' cy='10' r='2.2'/><circle cx='70' cy='10' r='2.2'/><circle cx='100' cy='10' r='2.2'/><circle cx='10' cy='40' r='2.2'/><circle cx='40' cy='40' r='2.2'/><circle cx='70' cy='40' r='2.2'/><circle cx='100' cy='40' r='2.2'/><circle cx='10' cy='70' r='2.2'/><circle cx='40' cy='70' r='2.2'/><circle cx='70' cy='70' r='2.2'/><circle cx='100' cy='70' r='2.2'/><circle cx='10' cy='100' r='2.2'/><circle cx='40' cy='100' r='2.2'/><circle cx='70' cy='100' r='2.2'/><circle cx='100' cy='100' r='2.2'/></g></svg>"
     );
 
+  useEffect(() => {
+    let active = true;
+    fetchBmcUnits()
+      .then((res) => {
+        if (!active) return;
+        const units = Array.isArray(res?.data) ? res.data : [];
+        setBmcUnits(units);
+        if (units[0]?.id) {
+          setForm((prev) => ({ ...prev, bmcId: units[0].id }));
+        }
+      })
+      .catch(() => {
+        if (active) setBmcUnits([]);
+      })
+      .finally(() => {
+        if (active) setLoadingUnits(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -26,35 +51,40 @@ export default function DairyLogin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!form.bmcId) {
+      await showPopup({ message: "Select a BMC created by admin before logging in.", type: "error" });
+      return;
+    }
+
     try {
       const res = await login({ username: form.username, password: form.password });
       const user = res?.user;
 
       if (!user) {
-        alert("Login failed - no user data received");
+        await showPopup({ message: "Login failed - no user data received", type: "error" });
         return;
       }
 
       if (user.role !== "Dairy") {
-        alert(`Not authorized - This is a ${user.role} account. Please use Dairy login credentials.`);
+        await showPopup({
+          message: `Not authorized - This is a ${user.role} account. Please use Dairy login credentials.`,
+          type: "error",
+        });
         return;
       }
       localStorage.setItem("auth_token", res.token);
+      localStorage.setItem("dairy_token", res.token);
+      localStorage.setItem("dairy_role", user.role);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
       localStorage.setItem("dairy_auth", "true");
       localStorage.setItem("dairy_name", user.username);
       localStorage.setItem("dairy_id", user.username);
-      localStorage.setItem("dairy_unit", form.dairyUnit);
-      localStorage.removeItem("society_auth");
-      localStorage.removeItem("society_name");
-      localStorage.removeItem("society_id");
-      localStorage.removeItem("bmc_auth");
-      localStorage.removeItem("bmc_name");
-      localStorage.removeItem("bmc_id");
+      localStorage.setItem("dairy_bmc_id", form.bmcId);
+      localStorage.setItem("dairy_unit", form.bmcId);
       navigate("/dairy/dashboard");
     } catch (err) {
-      alert(err.message || "Invalid Username or Password");
+      await showPopup({ message: err.message || "Invalid Username or Password", type: "error" });
     }
   };
 
@@ -77,7 +107,7 @@ export default function DairyLogin() {
               <img
                 src="/cow2.png"
                 alt="Buffalo field"
-                className="absolute left-[76px] top-[114px] z-0 h-[398px] w-[300px] -rotate-[3deg] rounded-[28px] border-[5px] border-white object-cover shadow-[0_26px_46px_rgba(0,0,0,0.25)]"
+                className="absolute left-[76px] top-[114px] z-0 h-[398px] w-[300px] -rotate-3 rounded-[28px] border-[5px] border-white object-cover shadow-[0_26px_46px_rgba(0,0,0,0.25)]"
               />
               <img
                 src="/cow.png"
@@ -91,11 +121,7 @@ export default function DairyLogin() {
         <div className="flex h-full items-center justify-center bg-[#f7f7f7] px-6 py-12">
           <div className="w-full max-w-[440px] rounded-[18px] border border-[#e7e7e7] bg-white px-9 py-8 shadow-[0_16px_32px_rgba(15,23,42,0.12)]">
             <div className="flex justify-center">
-              <img
-                src="/logo1.png"
-                alt="Logo"
-                className="h-14 object-contain"
-              />
+              <img src="/logo1.png" alt="Logo" className="h-14 object-contain" />
             </div>
             <p className="mt-3 text-center text-[18px] font-bold tracking-wide text-[#1E4B6B]">RBKVMUL</p>
 
@@ -106,16 +132,24 @@ export default function DairyLogin() {
 
             <form onSubmit={handleSubmit} className="mt-7 space-y-4">
               <select
-                name="dairyUnit"
-                value={form.dairyUnit}
+                name="bmcId"
+                value={form.bmcId}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-[#d7dbe3] bg-white px-4 py-[11px] text-[13.5px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2e5d7b]"
+                disabled={loadingUnits || bmcUnits.length === 0}
+                required
+                className="w-full rounded-lg border border-[#d7dbe3] bg-white px-4 py-[11px] text-[13.5px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2e5d7b] disabled:opacity-60"
               >
-                {dairyUnits.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
+                {loadingUnits ? (
+                  <option value="">Loading BMC list...</option>
+                ) : bmcUnits.length === 0 ? (
+                  <option value="">No approved BMC — ask admin to create one</option>
+                ) : (
+                  bmcUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.label}
+                    </option>
+                  ))
+                )}
               </select>
 
               <input
@@ -145,63 +179,22 @@ export default function DairyLogin() {
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-7-9-7a18.938 18.938 0 012.29-3.338M6.223 6.223A9.956 9.956 0 0112 5c5 0 9 7 9 7a18.948 18.948 0 01-4.357 4.938M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-7-9-7a18.938 18.938 0 012.29-3.338M6.223 6.223A9.956 9.956 0 0112 5c5 0 9 7 9 7a18.948 18.948 0 01-4.357 4.938M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                      />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                   )}
                 </button>
               </div>
 
-              <div className="flex items-center justify-between pt-1 text-[13px] text-slate-500">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-[#b5b9c2] text-[#2e5d7b] focus:ring-[#2e5d7b]"
-                  />
-                  <span>Remember Me</span>
-                </label>
-
-                {/*
-                <Link to="/forgot-password" className="hover:text-slate-600">
-                  Forgot Password?
-                </Link>
-                */}
-              </div>
-
               <button
                 type="submit"
-                className="mt-2 w-full rounded-lg bg-[#2e5d7b] py-[11px] text-[14px] font-semibold text-white shadow-[0_10px_18px_rgba(46,93,123,0.22)] transition hover:bg-[#264d66]"
+                disabled={loadingUnits || !bmcUnits.length}
+                className="mt-2 w-full rounded-lg bg-[#2e5d7b] py-[11px] text-[14px] font-semibold text-white shadow-[0_10px_18px_rgba(46,93,123,0.22)] transition hover:bg-[#264d66] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Login
               </button>

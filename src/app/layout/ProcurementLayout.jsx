@@ -1,4 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import PageContent from "../../shared/components/PageContent";
+import { ModuleNavIcons } from "../../shared/components/ModuleNavIcons";
 
 export default function ProcurementLayout() {
   const navigate = useNavigate();
@@ -16,44 +18,41 @@ export default function ProcurementLayout() {
   };
 
   const navItems = [
-    { label: "Dashboard", to: "/procurement/dashboard" },
-    { label: "Products", to: "/procurement/products" },
-    { label: "Inventory", to: "/procurement/inventory" },
-    { label: "Dispatches", to: "/procurement/dispatches" },
-    { label: "Reports", to: "/procurement/reports" },
+    { label: "Dashboard", to: "/procurement/dashboard", icon: "dashboard" },
+    { label: "Products", to: "/procurement/products", icon: "products" },
+    { label: "Inventory", to: "/procurement/inventory", icon: "inventory" },
+    { label: "Dispatches", to: "/procurement/dispatches", icon: "dispatch" },
+    { label: "Reports", to: "/procurement/reports", icon: "report" },
   ];
 
   return (
-    <div className="flex h-screen bg-[#F7FAFF] text-[#1F2A44] select-none cursor-default">
-      <aside className="flex w-64 flex-col border-r border-[#D7E4FF] bg-white text-[#1E4B6B]">
-        <div className="border-b border-[#1E4B6B] p-4">
-          <img src="/src/assets/logo.png" alt="RBKVMUL Logo" className="mx-auto h-[110px] w-auto object-contain" />
-          <p className="mt-2 text-center text-sm font-semibold">Procurement & Inputs</p>
+    <div className="flex h-screen bg-[#F8F6F2] text-[#1F2A44] select-none cursor-default">
+      <aside className="module-sidebar">
+        <div className="module-sidebar-logo">
+          <img src="/src/assets/logo.png" alt="RBKVMUL Logo" />
+          <p className="mt-2 text-center text-sm font-semibold text-[#1E4B6B]">Procurement & Inputs</p>
         </div>
 
-        <nav className="flex-1 space-y-1 p-2">
+        <nav className="module-sidebar-nav">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `block rounded px-4 py-3 text-sm font-medium ${
-                  isActive ? "bg-[#1E4B6B] text-white" : "text-[#1E4B6B] hover:bg-[#EAF1FF]"
-                }`
+                `module-sidebar-link ${isActive ? "module-sidebar-link-active" : "module-sidebar-link-idle"}`
               }
             >
-              {item.label}
+              <>
+                {ModuleNavIcons[item.icon]}
+                <span>{item.label}</span>
+              </>
             </NavLink>
           ))}
         </nav>
 
-        <div className="border-t border-[#1E4B6B] bg-white p-4">
-          <div className="mb-3 text-xs font-semibold text-[#5B6B7F]">{procurementName}</div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex items-center gap-2 rounded px-2 py-2 text-sm text-red-600 hover:bg-red-50"
-          >
+        <div className="module-sidebar-footer">
+          <p className="module-sidebar-user">{procurementName}</p>
+          <button type="button" onClick={handleLogout} className="module-sidebar-logout">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
             </svg>
@@ -62,8 +61,10 @@ export default function ProcurementLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)]">
-        <Outlet />
+      <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-[#F8F6F2]">
+        <PageContent className="flex-1 overflow-auto">
+          <Outlet />
+        </PageContent>
       </main>
     </div>
   );

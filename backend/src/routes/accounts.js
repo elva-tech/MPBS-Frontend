@@ -9,6 +9,8 @@ import {
   createClaim,
   createRecoverable,
   createScheme,
+  deleteClaimRecord,
+  deleteRecoverableRecord,
   deductionsReport,
   disburseBillingCycle,
   getAccountsDashboard,
@@ -25,16 +27,84 @@ import {
   schemesReport,
   toggleScheme,
   runBillingCycle,
+  updateClaim,
+  updateRecoverable,
 } from "../controllers/accountsController.js";
 
 const router = express.Router();
 
-const readRoles = ["Admin", "Account", "Accounts", "Auditor"];
+const readRoles = ["Admin", "Account", "Accounts", "Audit", "Auditor"];
 const writeRoles = ["Admin", "Account", "Accounts"];
 
 router.use(authRequired);
 
 router.get("/accounts/dashboard", requireRole(readRoles), getAccountsDashboard);
+
+router
+  .route("/accounts/claims")
+  .get(requireRole(readRoles), listClaims)
+  .post(
+    requireRole(writeRoles),
+    validate(
+      z.object({
+        societyId: z.string().min(1),
+        billingCycleId: z.string().min(1),
+        type: z.string().min(1),
+        amount: z.number(),
+        status: z.enum(["APPLIED", "PENDING"]).optional(),
+        description: z.string().optional(),
+      })
+    ),
+    createClaim
+  );
+
+router.patch(
+  "/accounts/claims/:id",
+  requireRole(writeRoles),
+  validate(
+    z.object({
+      status: z.enum(["APPLIED", "PENDING"]).optional(),
+      amount: z.number().optional(),
+      type: z.string().optional(),
+      description: z.string().optional(),
+    })
+  ),
+  updateClaim
+);
+router.delete("/accounts/claims/:id", requireRole(writeRoles), deleteClaimRecord);
+
+router
+  .route("/accounts/recoverables")
+  .get(requireRole(readRoles), listRecoverables)
+  .post(
+    requireRole(writeRoles),
+    validate(
+      z.object({
+        societyId: z.string().min(1),
+        reason: z.string().min(1),
+        totalAmount: z.number(),
+        remainingAmount: z.number().optional(),
+        installmentAmount: z.number(),
+        status: z.enum(["ACTIVE", "CLOSED"]).optional(),
+      })
+    ),
+    createRecoverable
+  );
+
+router.patch(
+  "/accounts/recoverables/:id",
+  requireRole(writeRoles),
+  validate(
+    z.object({
+      status: z.enum(["ACTIVE", "CLOSED"]).optional(),
+      installmentAmount: z.number().optional(),
+      remainingAmount: z.number().optional(),
+      reason: z.string().optional(),
+    })
+  ),
+  updateRecoverable
+);
+router.delete("/accounts/recoverables/:id", requireRole(writeRoles), deleteRecoverableRecord);
 
 router
   .route("/billing-cycles")

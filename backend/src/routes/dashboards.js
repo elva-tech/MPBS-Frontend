@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import { authRequired, requireRole } from "../middleware/auth.js";
 import {
 	getSocietyDashboard,
@@ -9,12 +9,30 @@ import {
 
 const router = express.Router();
 
-router.use(authRequired, requireRole(["Admin", "Society", "BMC", "Dairy", "Audit"]));
-
-router.get("/society", getSocietyDashboard);
-router.get("/bmc", getBmcDashboard);
-router.get("/dairy", requireRole(["Dairy", "Admin"]), getDairyDashboard);
-router.get("/admin", requireRole(["Admin"]), getAdminDashboard);
+router.get(
+  "/society",
+  authRequired,
+  requireRole(["Admin", "Society", "BMC", "Audit", "Auditor"]),
+  getSocietyDashboard
+);
+router.get(
+  "/bmc",
+  authRequired,
+  requireRole(["Admin", "BMC", "Audit", "Auditor"]),
+  getBmcDashboard
+);
+router.get(
+  "/dairy",
+  authRequired,
+  requireRole(["Dairy", "Admin", "Audit", "Auditor"]),
+  getDairyDashboard
+);
+router.get(
+  "/admin",
+  authRequired,
+  requireRole(["Admin", "Audit", "Auditor"]),
+  getAdminDashboard
+);
 
 export default router;
 

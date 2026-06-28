@@ -187,17 +187,19 @@ export async function getSocietyDashboard(req, res) {
 export async function getBmcDashboard(req, res) {
   const bmcId = req.query.bmcId || "";
   const today = toDateStr();
+  const selectedDate = String(req.query.date || "").trim();
+  const targetDate = selectedDate || today;
 
   const societyQuery = bmcId ? { bmcId } : {};
   const societies = await Society.find(societyQuery, "societyId societyName bmcId");
   const societyIds = societies.map((s) => s.societyId);
 
-  const entries = await MilkEntry.find({ date: today, societyId: { $in: societyIds } });
+  const entries = await MilkEntry.find({ date: targetDate, societyId: { $in: societyIds } });
   const totalMilk = sumBy(entries, (e) => e.qty);
   const cow = sumBy(entries, (e) => (e.milkType === "Cow" ? e.qty : 0));
   const buffalo = sumBy(entries, (e) => (e.milkType === "Buffalo" ? e.qty : 0));
 
-  const verifications = await Verification.find({ date: today, societyId: { $in: societyIds } });
+  const verifications = await Verification.find({ date: targetDate, societyId: { $in: societyIds } });
   const verifiedSet = new Set(verifications.map((v) => v.societyId));
   const verifiedQty = sumBy(entries, (e) => (verifiedSet.has(e.societyId) ? e.qty : 0));
 

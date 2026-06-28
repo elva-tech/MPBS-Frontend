@@ -1,9 +1,11 @@
-﻿import express from "express";
-import { login } from "../controllers/authController.js";
+import express from "express";
+import { listBmcUnits, login } from "../controllers/authController.js";
 import { validate } from "../middleware/validate.js";
 import { z } from "zod";
 
 const router = express.Router();
+
+router.get("/bmc-units", listBmcUnits);
 
 router.post(
   "/login",

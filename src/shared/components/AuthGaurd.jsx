@@ -1,9 +1,8 @@
 import { Navigate } from "react-router-dom";
+import { hasModuleSession } from "../../utils/authSession";
 
 export default function AuthGuard({ children }) {
-  const isAuthenticated = localStorage.getItem("society_auth") === "true";
-
-  if (!isAuthenticated) {
+  if (!hasModuleSession("society", "Society")) {
     return <Navigate to="/login" replace />;
   }
 

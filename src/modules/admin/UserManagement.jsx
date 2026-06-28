@@ -1,9 +1,11 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import AddUserModal from "./components/AddUserModal";
 import { listUsers, createUser, updateUserAuth } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
 import "./UserManagement.css";
 
 export default function UserManagement() {
+  const { showPopup } = usePopup();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -37,7 +39,7 @@ export default function UserManagement() {
         role,
         profile: userData,
       });
-      alert(`${role} user created. Approve it before login.`);
+      await showPopup({ message: `${role} user created. Approve it before login.`, type: "success" });
       setShowModal(false);
       await loadUsers();
     } catch (err) {

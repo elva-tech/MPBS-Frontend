@@ -1,13 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
-
-const initialProducts = [
-  { name: "Cattle Feed", unit: "Bag", rate: 1200, stock: 1200, status: "Active" },
-  { name: "Mineral Mixture", unit: "Packet", rate: 150, stock: 5000, status: "Active" },
-  { name: "Calf Starter", unit: "Packet", rate: 220, stock: 1800, status: "Active" },
-  { name: "Bypass Fat", unit: "Packet", rate: 300, stock: 950, status: "Inactive" },
-  { name: "Veterinary Tonic", unit: "Bottle", rate: 120, stock: 600, status: "Active" },
-];
+import { usePopup } from "../../shared/context/PopupContext";
+import { listProducts, createProduct, updateProduct } from "../../utils/api";
 
 const emptyForm = { name: "", unit: "Bag", rate: "", stock: "", status: "Active" };
 const pageSize = 4;
@@ -24,11 +18,40 @@ function formatRate(value) {
 }
 
 export default function ProcurementProducts() {
-  const [products, setProducts] = useState(initialProducts);
+  const { showConfirm, showPopup } = usePopup();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
-  const [editingName, setEditingName] = useState("");
+  const [editingId, setEditingId] = useState("");
   const [form, setForm] = useState(emptyForm);
+
+  const mapProduct = (p) => ({
+    id: p._id,
+    name: p.name,
+    unit: p.unit,
+    rate: p.rate,
+    stock: p.stockQty ?? 0,
+    status: p.status || "Active",
+  });
+
+  const loadProducts = async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const res = await listProducts();
+      setProducts((res?.data || []).map(mapProduct));
+    } catch (err) {
+      setLoadError(err.message || "Failed to load products.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
 
   const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
   const visibleProducts = useMemo(() => {
@@ -37,13 +60,13 @@ export default function ProcurementProducts() {
   }, [page, products]);
 
   const openAddForm = () => {
-    setEditingName("");
+    setEditingId("");
     setForm(emptyForm);
     setFormOpen(true);
   };
 
   const openEditForm = (product) => {
-    setEditingName(product.name);
+    setEditingId(product.id);
     setForm({
       name: product.name,
       unit: product.unit,
@@ -56,7 +79,7 @@ export default function ProcurementProducts() {
 
   const closeForm = () => {
     setFormOpen(false);
-    setEditingName("");
+    setEditingId("");
     setForm(emptyForm);
   };
 
@@ -64,37 +87,45 @@ export default function ProcurementProducts() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const saveProduct = (event) => {
+  const saveProduct = async (event) => {
     event.preventDefault();
     const payload = {
       name: form.name.trim(),
       unit: form.unit,
       rate: Number(form.rate || 0),
-      stock: Number(form.stock || 0),
+      stockQty: Number(form.stock || 0),
       status: form.status,
     };
 
     if (!payload.name) return;
 
-    setProducts((prev) => {
-      if (editingName) {
-        return prev.map((item) => (item.name === editingName ? payload : item));
+    try {
+      if (editingId) {
+        await updateProduct(editingId, payload);
+      } else {
+        await createProduct(payload);
       }
-      return [payload, ...prev];
-    });
-    setPage(1);
-    closeForm();
+      await loadProducts();
+      setPage(1);
+      closeForm();
+    } catch (err) {
+      await showPopup({ message: err.message || "Failed to save product.", type: "error" });
+    }
   };
 
-  const deleteProduct = (productName) => {
-    const confirmed = window.confirm(`Delete ${productName}?`);
+  const deleteProduct = async (product) => {
+    const confirmed = await showConfirm({ message: `Mark ${product.name} as inactive?` });
     if (!confirmed) return;
-    setProducts((prev) => prev.filter((item) => item.name !== productName));
-    setPage((current) => Math.min(current, Math.max(1, Math.ceil((products.length - 1) / pageSize))));
+    try {
+      await updateProduct(product.id, { status: "Inactive" });
+      await loadProducts();
+    } catch (err) {
+      await showPopup({ message: err.message || "Failed to update product.", type: "error" });
+    }
   };
 
   return (
-    <div className="space-y-4 p-6 text-[#1F2A44]">
+    <div className="module-page text-[#1F2A44]">
       <div className="flex justify-end">
         <button
           type="button"
@@ -105,6 +136,9 @@ export default function ProcurementProducts() {
           Add Product
         </button>
       </div>
+
+      {loadError ? <p className="text-sm text-red-600">{loadError}</p> : null}
+      {loading ? <p className="text-sm text-[#5B6B7F]">Loading products...</p> : null}
 
       {formOpen && (
         <form onSubmit={saveProduct} className="rounded-lg border border-[#D7E4FF] bg-white p-4 shadow-[0_4px_12px_rgba(15,41,74,0.08)]">
@@ -155,7 +189,7 @@ export default function ProcurementProducts() {
               Cancel
             </button>
             <button type="submit" className="rounded-lg bg-[#1E4B6B] px-4 py-2 text-sm font-semibold text-white hover:bg-[#163A54]">
-              {editingName ? "Update Product" : "Save Product"}
+              {editingId ? "Update Product" : "Save Product"}
             </button>
           </div>
         </form>
@@ -176,7 +210,7 @@ export default function ProcurementProducts() {
             </thead>
             <tbody>
               {visibleProducts.map((product) => (
-                <tr key={product.name} className="border-b border-[#EEF3FB] last:border-b-0">
+                <tr key={product.id || product.name} className="border-b border-[#EEF3FB] last:border-b-0">
                   <td className="px-5 py-3 font-semibold text-[#1E4B6B]">{product.name}</td>
                   <td className="px-5 py-3 text-[#1F2A44]">{product.unit}</td>
                   <td className="px-5 py-3 text-[#1F2A44]">{formatRate(product.rate)}</td>
@@ -197,7 +231,7 @@ export default function ProcurementProducts() {
                       <button type="button" onClick={() => openEditForm(product)} className="rounded p-1 hover:bg-[#EAF1FF]" aria-label={`Edit ${product.name}`}>
                         <Pencil size={16} />
                       </button>
-                      <button type="button" onClick={() => deleteProduct(product.name)} className="rounded p-1 hover:bg-red-50 hover:text-red-600" aria-label={`Delete ${product.name}`}>
+                      <button type="button" onClick={() => deleteProduct(product)} className="rounded p-1 hover:bg-red-50 hover:text-red-600" aria-label={`Deactivate ${product.name}`}>
                         <Trash2 size={16} />
                       </button>
                     </div>

@@ -1,14 +1,25 @@
-﻿import express from "express";
+import express from "express";
 import { authRequired, requireRole } from "../middleware/auth.js";
-import { getMilkEntries, createMilkEntries } from "../controllers/milkController.js";
+import { getMilkEntries, createMilkEntries, getMilkSessionStatus } from "../controllers/milkController.js";
 import { validate } from "../middleware/validate.js";
+import { asyncHandler } from "../middleware/errorHandler.js";
 import { z } from "zod";
 
 const router = express.Router();
 
 router.use(authRequired);
 
-router.get("/", requireRole(["Admin", "Society", "BMC", "Account", "Accounts", "Auditor"]), getMilkEntries);
+router.get(
+  "/session-status",
+  requireRole(["Admin", "Society", "BMC", "Account", "Accounts", "Audit", "Auditor"]),
+  asyncHandler(getMilkSessionStatus)
+);
+
+router.get(
+  "/",
+  requireRole(["Admin", "Society", "BMC", "Account", "Accounts", "Audit", "Auditor"]),
+  asyncHandler(getMilkEntries)
+);
 
 router.post(
   "/",
@@ -30,7 +41,7 @@ router.post(
       ),
     })
   ),
-  createMilkEntries
+  asyncHandler(createMilkEntries)
 );
 
 export default router;

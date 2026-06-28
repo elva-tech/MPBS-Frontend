@@ -1,6 +1,10 @@
-import { qualityTest, routeSheetRows, tankerDetails } from "./mockData";
+import {
+  finalizeDairyShipment,
+  getDairyModuleReports,
+  listDairyShipments,
+  updateDairyShipment,
+} from "../../utils/api";
 
-const SHIPMENTS_KEY = "dairy_shipments_v1";
 const ACTIVE_SHIPMENT_KEY = "dairy_active_shipment_id";
 export const QUALITY_MIN_FAT = 3.5;
 export const QUALITY_MIN_SNF = 8.5;
@@ -23,7 +27,9 @@ function findQualityValue(qualityRows = [], parameterName = "") {
   const match = qualityRows.find(
     (item) => String(item.parameter || "").trim().toLowerCase() === parameterName.trim().toLowerCase()
   );
-  return withNumber(match?.dairyTest, NaN);
+  const raw = String(match?.dairyTest || "").replace(/°c/i, "");
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : NaN;
 }
 
 export function isShipmentGoodQuality(shipment) {
@@ -33,115 +39,12 @@ export function isShipmentGoodQuality(shipment) {
   return fat >= QUALITY_MIN_FAT && snf >= QUALITY_MIN_SNF;
 }
 
-function buildDefaultShipments() {
-  const grouped = new Map();
-  const today = new Date().toISOString().slice(0, 10);
-
-  routeSheetRows.forEach((row) => {
-    const shipmentId = `${row.tankerId}-${row.route}`;
-    if (!grouped.has(shipmentId)) {
-      grouped.set(shipmentId, {
-        id: shipmentId,
-        tankerId: row.tankerId,
-        route: row.route,
-        arrivalTime: tankerDetails.arrivalTime || "-",
-        transporter: tankerDetails.transporter || "-",
-        status: "pending",
-        shift: "Morning",
-        receivedDate: today,
-        updatedAt: new Date().toISOString(),
-        stops: [],
-        quality: qualityTest.map((item) => ({
-          parameter: item.parameter,
-          routeSheet: String(item.routeSheet),
-          dairyTest: String(item.dairyTest || item.routeSheet),
-        })),
-        discrepancy: null,
-      });
-    }
-
-    grouped.get(shipmentId).stops.push({
-      bmc: row.bmc,
-      societies: withNumber(row.societies),
-      milkType: row.milkType,
-      expected: withNumber(row.expected),
-      received: withNumber(row.expected),
-    });
-  });
-
-  return Array.from(grouped.values());
-}
-
-function normalizeShipment(item) {
-  if (!item || typeof item !== "object") return null;
-  return {
-    ...item,
-    status: item.status || "pending",
-    shift: item.shift || "Morning",
-    receivedDate: item.receivedDate || new Date().toISOString().slice(0, 10),
-    stops: Array.isArray(item.stops) ? item.stops : [],
-    quality: Array.isArray(item.quality) ? item.quality : [],
-  };
-}
-
-function readShipments() {
-  try {
-    const raw = localStorage.getItem(SHIPMENTS_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    return parsed;
-  } catch (_) {
-    return null;
-  }
-}
-
-function writeShipments(shipments) {
-  localStorage.setItem(SHIPMENTS_KEY, JSON.stringify(shipments));
-}
-
-export function getShipments() {
-  const existing = readShipments();
-  if (existing && existing.length) {
-    const normalized = existing.map(normalizeShipment).filter(Boolean);
-    writeShipments(normalized);
-    return normalized;
-  }
-  const defaults = buildDefaultShipments();
-  writeShipments(defaults);
-  return defaults;
-}
-
 export function setActiveShipmentId(shipmentId) {
   localStorage.setItem(ACTIVE_SHIPMENT_KEY, shipmentId);
 }
 
 export function getActiveShipmentId() {
   return localStorage.getItem(ACTIVE_SHIPMENT_KEY) || "";
-}
-
-export function getShipmentById(shipmentId) {
-  return getShipments().find((item) => item.id === shipmentId) || null;
-}
-
-export function getActiveShipment() {
-  const activeId = getActiveShipmentId();
-  if (!activeId) return getShipments()[0] || null;
-  return getShipmentById(activeId) || getShipments()[0] || null;
-}
-
-export function updateShipment(shipmentId, updater) {
-  const shipments = getShipments();
-  const nextShipments = shipments.map((item) => {
-    if (item.id !== shipmentId) return item;
-    const next = updater(item);
-    return {
-      ...next,
-      updatedAt: new Date().toISOString(),
-    };
-  });
-  writeShipments(nextShipments);
-  return nextShipments.find((item) => item.id === shipmentId) || null;
 }
 
 export function calculateTotals(stops = []) {
@@ -160,8 +63,55 @@ export function calculateTotals(stops = []) {
   );
 }
 
-export function getDashboardMetrics() {
-  const shipments = getShipments();
+export function getShipmentStatusLabel(status) {
+  return STATUS_LABELS[status] || "Pending";
+}
+
+function getDairyUnit() {
+  return localStorage.getItem("dairy_unit") || localStorage.getItem("dairyUnit") || "";
+}
+
+export async function fetchShipments(params = {}) {
+  const dairyUnit = params.dairyUnit || getDairyUnit();
+  const date = params.date || new Date().toISOString().slice(0, 10);
+  const payload = await listDairyShipments({ dairyUnit, date });
+  return Array.isArray(payload?.data) ? payload.data : [];
+}
+
+export async function fetchActiveShipment(shipments = []) {
+  const activeId = getActiveShipmentId();
+  if (activeId) {
+    const match = shipments.find((item) => item.id === activeId);
+    if (match) return match;
+  }
+  return shipments[0] || null;
+}
+
+export async function fetchLatestDiscrepancyShipment(shipments = []) {
+  const candidates = shipments.filter((item) => {
+    const totals = calculateTotals(item.stops || []);
+    return item.status === "rejected" || item.status === "penalty" || item.status === "in_verification" || totals.shortage > 0;
+  });
+  if (!candidates.length) return shipments[0] || null;
+  return candidates[0];
+}
+
+export async function patchShipment(shipmentId, body) {
+  const payload = await updateDairyShipment(shipmentId, body);
+  return payload?.data || null;
+}
+
+export async function finalizeShipmentDecision(shipmentId, decision, discrepancy = null) {
+  const payload = await finalizeDairyShipment(shipmentId, { decision, discrepancy });
+  return payload?.data || null;
+}
+
+export async function fetchDairyReports(params = {}) {
+  const payload = await getDairyModuleReports(params);
+  return payload?.data || { summary: [], shipments: [] };
+}
+
+export function getDashboardMetricsFromShipments(shipments = []) {
   const totals = shipments.reduce(
     (acc, item) => {
       const itemTotals = calculateTotals(item.stops || []);
@@ -181,18 +131,4 @@ export function getDashboardMetrics() {
     approvedCount: shipments.filter((item) => item.status === "approved").length,
     rejectedOrPenalisedCount: shipments.filter((item) => item.status === "rejected" || item.status === "penalty").length,
   };
-}
-
-export function getLatestDiscrepancyShipment() {
-  const shipments = getShipments();
-  const candidates = shipments.filter((item) => {
-    const totals = calculateTotals(item.stops || []);
-    return item.status === "rejected" || item.status === "penalty" || totals.shortage > 0;
-  });
-  if (!candidates.length) return getActiveShipment();
-  return candidates.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
-}
-
-export function getShipmentStatusLabel(status) {
-  return STATUS_LABELS[status] || "Pending";
 }

@@ -1,20 +1,48 @@
 import { useEffect, useMemo, useState } from "react";
-import { calculateTotals, getLatestDiscrepancyShipment, getShipmentStatusLabel, setActiveShipmentId, updateShipment } from "./state";
+import {
+  calculateTotals,
+  fetchLatestDiscrepancyShipment,
+  fetchShipments,
+  finalizeShipmentDecision,
+  getShipmentStatusLabel,
+  patchShipment,
+  setActiveShipmentId,
+} from "./state";
+import { usePopup } from "../../shared/context/PopupContext";
 
 const discrepancyTypes = ["Quantity Loss", "Low Fat / SNF", "Spillage", "Adulteration"];
 
 export default function DairyMilkReceipt() {
-  const [shipment, setShipment] = useState(() => getLatestDiscrepancyShipment());
+  const { showPopup, showConfirm } = usePopup();
+  const [shipment, setShipment] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [discrepancyType, setDiscrepancyType] = useState(discrepancyTypes[0]);
   const [remarks, setRemarks] = useState("Milk shortage detected during unloading.");
   const [photoName, setPhotoName] = useState("");
   const [remarksError, setRemarksError] = useState("");
 
   useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const shipments = await fetchShipments();
+        const target = await fetchLatestDiscrepancyShipment(shipments);
+        if (active) setShipment(target);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!shipment?.discrepancy) return;
     setDiscrepancyType(shipment.discrepancy.type || discrepancyTypes[0]);
     setRemarks(shipment.discrepancy.remarks || "");
-    setPhotoName(shipment.discrepancy.photoName || "");
+    setPhotoName(shipment.discrepancy.evidenceName || shipment.discrepancy.photoName || "");
   }, [shipment]);
 
   const receiptRows = useMemo(
@@ -34,36 +62,47 @@ export default function DairyMilkReceipt() {
     return { quantityLoss, penaltyRate, deduction };
   }, [receiptRows]);
 
-  const saveDecision = (status) => {
+  const saveDecision = async (status) => {
     if (!remarks.trim()) {
       setRemarksError("Remarks are mandatory for approve with penalty or rejection.");
       return;
     }
     const actionText = status === "rejected" ? "reject this tanker batch" : "approve with penalty and send to Accounts";
-    const confirmed = window.confirm(`Please confirm: ${actionText}?`);
+    const confirmed = await showConfirm({ message: `Please confirm: ${actionText}?` });
     if (!confirmed) return;
 
     if (!shipment?.id) return;
-    const updated = updateShipment(shipment.id, (current) => ({
-      ...current,
-      status,
-      discrepancy: {
-        type: discrepancyType,
-        remarks,
-        photoName,
-        penaltyRate: totals.penaltyRate,
-        deduction: totals.deduction,
-      },
-    }));
+
+    await patchShipment(shipment.id, { stops: shipment.stops, quality: shipment.quality });
+    const decision = status === "penalty" ? "penalty" : "rejected";
+    const updated = await finalizeShipmentDecision(shipment.id, decision, {
+      type: discrepancyType,
+      remarks,
+      evidenceName: photoName,
+      penaltyRate: totals.penaltyRate,
+      deduction: totals.deduction,
+    });
+
     setRemarksError("");
-    setShipment(updated);
-    setActiveShipmentId(updated?.id || shipment.id);
-    window.alert("Submission completed successfully.");
+    if (updated) {
+      setShipment(updated);
+      setActiveShipmentId(updated.id);
+    }
+    await showPopup({ message: "Submission completed successfully.", type: "success" });
   };
+
+  if (loading) {
+    return (
+      <div className="module-page module-page-body text-[#1F2A44]">
+        <h1 className="text-2xl font-semibold text-[#1E4B6B]">Milk Receipt & Discrepancy</h1>
+        <p className="mt-1 text-sm text-[#5B6B7F]">Loading discrepancy data...</p>
+      </div>
+    );
+  }
 
   if (!shipment) {
     return (
-      <div className="p-6 text-[#1F2A44]">
+      <div className="module-page module-page-body text-[#1F2A44]">
         <h1 className="text-2xl font-semibold text-[#1E4B6B]">Milk Receipt & Discrepancy</h1>
         <p className="mt-1 text-sm text-[#5B6B7F]">No tanker discrepancy data available.</p>
       </div>
@@ -71,7 +110,7 @@ export default function DairyMilkReceipt() {
   }
 
   return (
-    <div className="p-6 text-[#1F2A44]">
+    <div className="module-page module-page-body text-[#1F2A44]">
       <h1 className="text-2xl font-semibold text-[#1E4B6B]">Milk Receipt & Discrepancy</h1>
       <p className="mt-1 text-sm text-[#5B6B7F]">Log quantity/quality differences and apply penalty decisions.</p>
       <div className="mt-3 rounded-lg border border-[#D7E4FF] bg-white px-4 py-3 text-sm text-[#334155]">
@@ -162,14 +201,16 @@ export default function DairyMilkReceipt() {
         <button
           type="button"
           onClick={() => saveDecision("penalty")}
-          className="rounded bg-[#1E4B6B] px-5 py-2 text-sm font-semibold text-white hover:bg-[#173A55]"
+          disabled={["approved", "penalty", "rejected"].includes(shipment.status)}
+          className="rounded bg-[#1E4B6B] px-5 py-2 text-sm font-semibold text-white hover:bg-[#173A55] disabled:opacity-50"
         >
           Approve with Penalty
         </button>
         <button
           type="button"
           onClick={() => saveDecision("rejected")}
-          className="rounded border border-[#D84343] bg-white px-5 py-2 text-sm font-semibold text-[#D84343] hover:bg-[#FFF4F4]"
+          disabled={["approved", "penalty", "rejected"].includes(shipment.status)}
+          className="rounded border border-[#D84343] bg-white px-5 py-2 text-sm font-semibold text-[#D84343] hover:bg-[#FFF4F4] disabled:opacity-50"
         >
           Reject Tanker
         </button>

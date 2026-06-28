@@ -1,5 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import NotificationBell from "../../modules/society/components/NotificationBell";
+import PageContent from "../../shared/components/PageContent";
+import { clearModuleSession } from "../../utils/authSession";
 
 
 
@@ -45,37 +47,8 @@ export default function Layout() {
 
 
   const handleLogout = () => {
-
-
-
-
-
-
-
-    localStorage.removeItem("society_auth");
-
-
-
-
-
-
-
-    localStorage.removeItem("society_name");
-
-
-
-
-
-
-
+    clearModuleSession("society");
     navigate("/login");
-
-
-
-
-
-
-
   };
 
 
@@ -116,7 +89,7 @@ export default function Layout() {
 
 
 
-      <aside className="w-64 bg-white text-[#1E4B6B] flex flex-col border-r overflow-hidden caret-transparent">
+      <aside className="module-sidebar caret-transparent">
 
 
 
@@ -132,7 +105,7 @@ export default function Layout() {
 
 
 
-        <div className="p-4 border-b border-[#1E4B6B] bg-white">
+        <div className="module-sidebar-logo">
 
 
 
@@ -164,7 +137,7 @@ export default function Layout() {
 
 
 
-              className="h-[140px] w-auto mx-auto"
+              className="mx-auto h-[118px] w-auto max-w-full object-contain"
 
 
 
@@ -196,7 +169,7 @@ export default function Layout() {
 
 
 
-        <nav className="flex-1 p-2 space-y-1">
+        <nav className="module-sidebar-nav">
 
 
 
@@ -236,23 +209,7 @@ export default function Layout() {
 
 
 
-              `block px-4 py-3 rounded hover:bg-[#EAF1FF] flex items-center gap-3 ${
-
-
-
-
-
-
-
-                isActive ? "bg-[#1E4B6B] text-white" : "text-[#1E4B6B]"
-
-
-
-
-
-
-
-              }`
+              `module-sidebar-link ${isActive ? "module-sidebar-link-active" : "module-sidebar-link-idle"}`
 
 
 
@@ -676,23 +633,7 @@ export default function Layout() {
 
 
 
-              `block px-4 py-3 rounded hover:bg-[#EAF1FF] flex items-center gap-3 ${
-
-
-
-
-
-
-
-                isActive ? "bg-[#1E4B6B] text-white" : "text-[#1E4B6B]"
-
-
-
-
-
-
-
-              }`
+              `module-sidebar-link ${isActive ? "module-sidebar-link-active" : "module-sidebar-link-idle"}`
 
 
 
@@ -1004,23 +945,7 @@ export default function Layout() {
 
 
 
-              `block px-4 py-3 rounded hover:bg-[#EAF1FF] flex items-center gap-3 ${
-
-
-
-
-
-
-
-                isActive ? "bg-[#1E4B6B] text-white" : "text-[#1E4B6B]"
-
-
-
-
-
-
-
-              }`
+              `module-sidebar-link ${isActive ? "module-sidebar-link-active" : "module-sidebar-link-idle"}`
 
 
 
@@ -1252,7 +1177,24 @@ export default function Layout() {
 
 
 
-        </nav>
+        
+          <NavLink
+            to="/complaints"
+            className={({ isActive }) =>
+              `module-sidebar-link ${isActive ? "module-sidebar-link-active" : "module-sidebar-link-idle"}`
+            }
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 4h16v14H8l-4 4V4Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Complaints</span>
+          </NavLink>
+</nav>
 
 
 
@@ -1268,46 +1210,11 @@ export default function Layout() {
 
 
 
-        <div className="p-4 border-t border-[#1E4B6B] text-sm">
-
-
-
-
-
-
-
+        <div className="module-sidebar-footer">
           <button
-
-
-
-
-
-
-
+            type="button"
             onClick={handleLogout}
-
-
-
-
-
-
-
-            className="mt-1 flex items-center gap-2 text-red-600 hover:bg-red-50 px-2 py-2 rounded text-sm"
-
-
-
-
-
-
-
-          >
-
-
-
-
-
-
-
+            className="module-sidebar-logout">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 
 
@@ -1366,7 +1273,7 @@ export default function Layout() {
 
 
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex flex-1 flex-col min-h-0 overflow-auto">
 
 
 
@@ -1513,7 +1420,9 @@ export default function Layout() {
 
 
 
-        <Outlet />
+        <PageContent>
+          <Outlet />
+        </PageContent>
 
 
 

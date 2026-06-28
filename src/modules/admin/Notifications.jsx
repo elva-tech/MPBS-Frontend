@@ -6,6 +6,7 @@ import {
   listUsers,
   uploadNotificationFile,
 } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
 
 const RECIPIENT_OPTIONS = ["All", "Society", "BMC", "EO", "Dairy"];
 const COLOR_PAGE_GRADIENT = "linear-gradient(180deg,#F7FAFF 0%,#EEF4FF 100%)";
@@ -15,6 +16,7 @@ const COLOR_TEXT = "#1E4B6B";
 const COLOR_MUTED = "#5B6B7F";
 
 export default function Notifications() {
+  const { showPopup, showConfirm } = usePopup();
   const [sentTo, setSentTo] = useState("");
   const [message, setMessage] = useState("");
   const [file, setFile] = useState(null);
@@ -75,7 +77,7 @@ export default function Notifications() {
     e.preventDefault();
 
     if (!sentTo || !message) {
-      alert("Please select recipient and enter message");
+      await showPopup({ message: "Please select recipient and enter message", type: "warning" });
       return;
     }
 
@@ -98,7 +100,7 @@ export default function Notifications() {
       await createNotification({
         ...payload,
       });
-      alert("Notification sent successfully");
+      await showPopup({ message: "Notification sent successfully", type: "success" });
       setSentTo("");
       setTargetUserId("__all_role__");
       setMessage("");
@@ -115,21 +117,22 @@ export default function Notifications() {
 
   const handleArchive = async (notificationId) => {
     if (!notificationId) return;
-    if (!confirm("Archive this notification?")) return;
+    const confirmed = await showConfirm({ message: "Archive this notification?" });
+    if (!confirmed) return;
     setArchivingId(notificationId);
     try {
       await archiveNotification(notificationId);
       await loadHistory();
     } catch (error) {
-      alert(error.message || "Failed to archive notification");
+      await showPopup({ message: error.message || "Failed to archive notification", type: "error" });
     } finally {
       setArchivingId("");
     }
   };
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
-      <div className="mx-auto max-w-[1180px] space-y-4">
+    <div className="module-page" style={{ backgroundImage: COLOR_PAGE_GRADIENT }}>
+      <div className="w-full space-y-4">
       <h1 className="text-xl font-semibold mb-1" style={{ color: COLOR_TEXT }}>Send Notification</h1>
       <p className="text-sm mb-4" style={{ color: COLOR_MUTED }}>Create and track system notifications.</p>
 

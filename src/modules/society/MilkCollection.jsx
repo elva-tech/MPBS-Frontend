@@ -1,8 +1,11 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import MilkCollectionTable from "./components/MilkCollectionTable";
 import { getSession } from "../../utils/session";
-import { createMilkEntries } from "../../utils/api";
+import { createMilkEntries, createRequest, getMilkSessionStatus, listMyRequests } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
+import DemoUnlockToggle from "../../shared/components/DemoUnlockToggle";
+import { isDemoUnlockEnabled } from "../../utils/demoMode";
 
 const FIXED_RATE = 45;
 
@@ -16,10 +19,22 @@ const createEmptyRow = () => ({
 });
 
 export default function MilkCollection() {
+  const { showPopup, showPrompt } = usePopup();
   const [session, setSession] = useState(null);
   const username = localStorage.getItem("society_name");
   const avatarLetter = username ? username.charAt(0).toUpperCase() : "";
   const [savedData, setSavedData] = useState(null);
+  const [sessionLocked, setSessionLocked] = useState(false);
+  const [morningLocked, setMorningLocked] = useState(false);
+  const [eveningLocked, setEveningLocked] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [pendingUnlock, setPendingUnlock] = useState(false);
+  const [unlockRequest, setUnlockRequest] = useState(null);
+  const [bmcVerified, setBmcVerified] = useState(false);
+  const [demoUnlock, setDemoUnlock] = useState(isDemoUnlockEnabled());
+  const savingRef = useRef(false);
+  const lastUnlockAtRef = useRef(0);
 
   const [morningRows, setMorningRows] = useState([
     createEmptyRow(),
@@ -33,6 +48,117 @@ export default function MilkCollection() {
   useEffect(() => {
     setSession(getSession()); // "M" or "E"
   }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = getSession();
+      if (next !== session) setSession(next);
+    }, 30000);
+    return () => clearInterval(id);
+  }, [session]);
+
+  const societyId = localStorage.getItem("society_id") || localStorage.getItem("society_name") || "";
+  const today = new Date().toISOString().split("T")[0];
+
+  const entriesToRows = (entries) => {
+    if (!entries?.length) {
+      return [createEmptyRow(), createEmptyRow()];
+    }
+    const rows = entries.map((entry) => ({
+      milkType: entry.milkType || "",
+      fat: entry.fat != null ? String(entry.fat) : "",
+      snf: entry.snf != null ? String(entry.snf) : "",
+      qty: entry.qty != null ? String(entry.qty) : "",
+      rate: entry.rate != null ? Number(entry.rate).toFixed(2) : "",
+      amount: entry.amount != null ? Number(entry.amount).toFixed(2) : "",
+    }));
+    while (rows.length < 2) rows.push(createEmptyRow());
+    return rows;
+  };
+
+  const loadUnlockRequest = async () => {
+    try {
+      const res = await listMyRequests({ type: "milk_unlock" });
+      const list = Array.isArray(res?.data) ? res.data : [];
+      const match = list.find(
+        (item) =>
+          item.societyId === societyId &&
+          item.sessionDate === today &&
+          item.sessionCode === session
+      );
+      setUnlockRequest(match || null);
+    } catch {
+      // keep current unlock state
+    }
+  };
+
+  const applySessionPayload = (sessionCode, payload) => {
+    const entries = payload.entries || [];
+    const locked = Boolean(payload.locked);
+    const rows = entriesToRows(entries);
+
+    if (sessionCode === "M") {
+      setMorningRows(rows);
+      setMorningLocked(locked);
+    } else {
+      setEveningRows(rows);
+      setEveningLocked(locked);
+    }
+
+    if (locked && entries.length) {
+      setSavedData((prev) => ({
+        morningRows: sessionCode === "M" ? rows : prev?.morningRows || [createEmptyRow(), createEmptyRow()],
+        eveningRows: sessionCode === "E" ? rows : prev?.eveningRows || [createEmptyRow(), createEmptyRow()],
+        savedAt: new Date(),
+      }));
+    }
+
+    return { locked, verifiedByBmc: Boolean(payload.bmcVerified) };
+  };
+
+  useEffect(() => {
+    if (!session || !societyId) {
+      setLoadingSession(false);
+      return;
+    }
+
+    let active = true;
+    const loadSession = async () => {
+      setLoadingSession(true);
+      try {
+        const [mRes, eRes] = await Promise.all([
+          getMilkSessionStatus({ societyId, date: today, session: "M" }),
+          getMilkSessionStatus({ societyId, date: today, session: "E" }),
+        ]);
+        if (!active) return;
+
+        const mPayload = mRes?.data || {};
+        const ePayload = eRes?.data || {};
+        const mState = applySessionPayload("M", mPayload);
+        const eState = applySessionPayload("E", ePayload);
+
+        const activeLocked = session === "M" ? mState.locked : eState.locked;
+        const activeBmc = session === "M" ? mState.verifiedByBmc : eState.verifiedByBmc;
+        setSessionLocked(activeLocked);
+        setBmcVerified(activeBmc);
+
+        await loadUnlockRequest();
+      } catch (error) {
+        if (active) {
+          showPopup({ message: error.message || "Failed to load session data", type: "error" });
+        }
+      } finally {
+        if (active) setLoadingSession(false);
+      }
+    };
+
+    loadSession();
+    window.addEventListener("focus", loadSession);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", loadSession);
+    };
+  }, [session, societyId, today, demoUnlock]);
 
   useEffect(() => {
     const handleCopy = (event) => {
@@ -61,6 +187,8 @@ export default function MilkCollection() {
   if (!session) return null;
 
   const isMorning = session === "M";
+  const effectiveSessionLocked = sessionLocked && !demoUnlock;
+  const effectiveBmcVerified = bmcVerified && !demoUnlock;
 
   const handleClearRow = (index, rows, setRows) =>
     setRows(rows.map((r, i) => (i === index ? createEmptyRow() : r)));
@@ -96,6 +224,16 @@ export default function MilkCollection() {
   };
 
   const handleSave = async () => {
+    if (effectiveSessionLocked || savingRef.current) {
+      showPopup({
+        message: effectiveBmcVerified
+          ? "BMC has verified this session. Changes are not allowed."
+          : "This session is locked. Request admin unlock to edit.",
+        type: "error",
+      });
+      return;
+    }
+
     const rowsToValidate = isMorning ? morningRows : eveningRows;
     
     const hasInvalidRow = rowsToValidate.some((row) => {
@@ -127,7 +265,7 @@ export default function MilkCollection() {
       return missingRequired || invalidNumbers;
     });
     if (hasInvalidRow) {
-      alert("Data entered is not sufficient.");
+      showPopup({ message: "Data entered is not sufficient.", type: "error" });
       return;
     }
 
@@ -143,19 +281,17 @@ export default function MilkCollection() {
       }));
 
     if (entries.length === 0) {
-      alert("Please enter at least one complete milk entry.");
+      showPopup({ message: "Please enter at least one complete milk entry.", type: "error" });
       return;
     }
 
-    const societyId = localStorage.getItem("society_id") || localStorage.getItem("society_name") || "";
-    
     if (!societyId) {
-      alert("Session expired. Please log in again.");
-      window.location.href = "/society/login";
+      showPopup({ message: "Session expired. Please log in again.", type: "error" });
+      window.location.href = "/login";
       return;
     }
-    
-    const date = new Date().toISOString().split("T")[0];
+
+    const date = today;
     const sessionLabel = isMorning ? "M" : "E";
 
     const payload = {
@@ -166,16 +302,87 @@ export default function MilkCollection() {
     };
 
     try {
-      const response = await createMilkEntries(payload);
+      savingRef.current = true;
+      setSaving(true);
+      await createMilkEntries(payload);
 
       setSavedData({
         morningRows,
         eveningRows,
         savedAt: new Date(),
       });
-      alert("Saved successfully. " + entries.length + " entry(ies) saved.");
+      setSessionLocked(true);
+      if (isMorning) setMorningLocked(true);
+      else setEveningLocked(true);
+      setUnlockRequest(null);
+      showPopup({
+        message: `Saved successfully. ${entries.length} entry(ies) saved. Session is now locked.`,
+        type: "success",
+      });
     } catch (error) {
-      alert("Failed to save: " + (error.message || "Unknown error"));
+      if (/locked|already saved|session is locked/i.test(error.message || "")) {
+        setSessionLocked(true);
+      }
+      showPopup({ message: error.message || "Failed to save", type: "error" });
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  const handleRequestUnlock = async () => {
+    const now = Date.now()
+    if (now - lastUnlockAtRef.current < 3000) {
+      showPopup({
+        message: "Please wait a few seconds before sending another unlock request.",
+        type: "warning",
+      });
+      return;
+    }
+
+    if (unlockRequest?.status === "pending") {
+      showPopup({
+        message: "Unlock request is already pending with admin.",
+        type: "warning",
+      });
+      return;
+    }
+
+    const reason = await showPrompt({
+      title: "Request Admin Unlock",
+      message: "Describe the mismatch or issue. Admin will review this unlock request:",
+      placeholder: "Enter reason for unlock...",
+      submitLabel: "Send Request",
+    });
+    if (!reason) return;
+
+    try {
+      setPendingUnlock(true);
+      lastUnlockAtRef.current = Date.now();
+      const unlockPayload = {
+        type: "milk_unlock",
+        username: localStorage.getItem("society_name") || "",
+        role: "Society",
+        societyName: localStorage.getItem("society_name") || "",
+        societyId,
+        sessionDate: today,
+        sessionCode: isMorning ? "M" : "E",
+        message: reason,
+      };
+      const societyUserId =
+        localStorage.getItem("society_user_id") || localStorage.getItem("user_id");
+      if (societyUserId) unlockPayload.userId = societyUserId;
+
+      const res = await createRequest(unlockPayload);
+      setUnlockRequest(res?.data || null);
+      showPopup({
+        message: res?.message || "Unlock request sent to admin.",
+        type: "success",
+      });
+    } catch (error) {
+      showPopup({ message: error.message || "Failed to send unlock request", type: "error" });
+    } finally {
+      setPendingUnlock(false);
     }
   };
 
@@ -255,9 +462,12 @@ export default function MilkCollection() {
     return y;
   };
 
-  const handleGenerateDispatchSheet = () => {
+  const handleGenerateDispatchSheet = async () => {
     if (!savedData) {
-      alert("Please click Save before generating the dispatch sheet.");
+      await showPopup({
+        message: "Please click Save before generating the dispatch sheet.",
+        type: "warning",
+      });
       return;
     }
 
@@ -303,7 +513,7 @@ export default function MilkCollection() {
   });
 
   return (
-    <div className="min-h-full bg-[#F6F8FC] p-6 text-[#23324A] select-none">
+    <div className="module-page bg-[#F6F8FC] text-[#23324A] select-none">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[#1E4B6B]">
           <svg
@@ -372,7 +582,7 @@ export default function MilkCollection() {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex w-full flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3 rounded border border-[#D9DFF0] bg-white px-4 py-2 shadow-sm">
             <div className="grid h-10 w-10 place-items-center rounded bg-[#EFEAFB] text-[#6B4EBC]">
@@ -446,11 +656,13 @@ export default function MilkCollection() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleGenerateDispatchSheet}
-          className="ml-auto flex items-center gap-2 rounded bg-[#1E4B6B] px-4 py-2 text-xs font-semibold text-white shadow-sm"
-        >
+        <div className="flex flex-wrap items-center gap-3">
+          <DemoUnlockToggle onChange={setDemoUnlock} />
+          <button
+            type="button"
+            onClick={handleGenerateDispatchSheet}
+            className="module-btn text-xs font-semibold text-white bg-[#1E4B6B] shadow-sm"
+          >
           <svg
             width="14"
             height="14"
@@ -482,6 +694,7 @@ export default function MilkCollection() {
           </svg>
           Generate Dispatch Sheet
         </button>
+        </div>
       </div>
 
       <div className="mt-3 flex items-start gap-2 rounded border border-[#E2E6F0] bg-white px-3 py-2 text-[11px] text-[#5F6F85] shadow-sm">
@@ -509,6 +722,40 @@ export default function MilkCollection() {
         </p>
       </div>
 
+      {effectiveSessionLocked && (
+        <div
+          className={`mt-3 rounded border px-3 py-2 text-[11px] font-semibold shadow-sm ${
+            effectiveBmcVerified
+              ? "border-[#1E4B6B] bg-[#EEF4FF] text-[#1E4B6B]"
+              : "border-green-200 bg-green-50 text-green-800"
+          }`}
+        >
+          {effectiveBmcVerified
+            ? "BMC has verified this session. Editing is locked."
+            : "Current session saved and locked. Request admin unlock if you need to edit."}
+        </div>
+      )}
+
+      {unlockRequest && unlockRequest.status !== "approved" && (
+        <div
+          className={`mt-3 rounded border px-3 py-2 text-[11px] shadow-sm ${
+            unlockRequest.status === "rejected"
+              ? "border-red-200 bg-red-50 text-red-800"
+              : "border-amber-200 bg-amber-50 text-amber-900"
+          }`}
+        >
+          <p className="font-semibold">
+            Unlock request: {(unlockRequest.status || "pending").toUpperCase()}
+          </p>
+          {unlockRequest.message ? (
+            <p className="mt-1">Your note: {unlockRequest.message}</p>
+          ) : null}
+          {unlockRequest.adminActionReason ? (
+            <p className="mt-1">Admin response: {unlockRequest.adminActionReason}</p>
+          ) : null}
+        </div>
+      )}
+
       <div className="mt-4 space-y-5">
         {(isMorning
           ? [
@@ -517,12 +764,14 @@ export default function MilkCollection() {
                 enabled: true,
                 rows: morningRows,
                 setRows: setMorningRows,
+                locked: morningLocked,
               },
               {
                 label: "Evening Session",
                 enabled: false,
                 rows: eveningRows,
                 setRows: setEveningRows,
+                locked: eveningLocked,
               },
             ]
           : [
@@ -531,19 +780,22 @@ export default function MilkCollection() {
                 enabled: true,
                 rows: eveningRows,
                 setRows: setEveningRows,
+                locked: eveningLocked,
               },
               {
                 label: "Morning Session",
                 enabled: false,
                 rows: morningRows,
                 setRows: setMorningRows,
+                locked: morningLocked,
               },
             ]
         ).map((block) => (
           <div key={block.label}>
             <MilkCollectionTable
               sessionLabel={block.label}
-              enabled={block.enabled}
+              enabled={block.enabled && !effectiveSessionLocked && !loadingSession}
+              locked={block.locked}
               rows={block.rows}
               onClearRow={(i) =>
                 handleClearRow(i, block.rows, block.setRows)
@@ -553,36 +805,35 @@ export default function MilkCollection() {
               }
             />
             {block.enabled && (
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="flex items-center gap-2 rounded border border-[#1E4B6B] bg-[#1E4B6B] px-4 py-2 text-xs font-semibold text-white shadow-sm"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
+              <div className="mt-3 flex flex-wrap justify-end gap-3">
+                {effectiveSessionLocked ? (
+                  <button
+                    type="button"
+                    onClick={handleRequestUnlock}
+                    disabled={
+                      pendingUnlock ||
+                      loadingSession ||
+                      unlockRequest?.status === "pending" ||
+                      effectiveBmcVerified
+                    }
+                    className="module-btn border border-[#1E4B6B] bg-white text-xs font-semibold text-[#1E4B6B] shadow-sm disabled:opacity-60"
                   >
-                    <path
-                      d="M5 4h11l3 3v13H5V4Z"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M9 4v6h6V4"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Save
-                </button>
+                    {pendingUnlock
+                      ? "Sending..."
+                      : unlockRequest?.status === "pending"
+                        ? "Unlock Request Pending"
+                        : "Request Admin Unlock"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving || loadingSession || effectiveSessionLocked}
+                    className="module-btn border border-[#1E4B6B] bg-[#1E4B6B] text-xs font-semibold text-white shadow-sm disabled:opacity-60"
+                  >
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                )}
               </div>
             )}
           </div>

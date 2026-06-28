@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { login } from "../../utils/api";
+import { usePopup } from "../../shared/context/PopupContext";
 
 export default function BMCLogin() {
   const navigate = useNavigate();
+  const { showPopup } = usePopup();
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     username: "",
@@ -27,16 +29,20 @@ export default function BMCLogin() {
       const user = res?.user;
       
       if (!user) {
-        alert("Login failed - no user data received");
+        await showPopup({ message: "Login failed - no user data received", type: "error" });
         return;
       }
       
       if (user.role !== "BMC") {
-        alert(`Not authorized - This is a ${user.role} account. Please use BMC login credentials.`);
+        await showPopup({
+          message: `Not authorized - This is a ${user.role} account. Please use BMC login credentials.`,
+          type: "error",
+        });
         return;
       }
       localStorage.setItem("auth_token", res.token);
       localStorage.setItem("bmc_token", res.token);
+      localStorage.setItem("bmc_role", user.role);
       localStorage.setItem("user_role", user.role);
       localStorage.setItem("user_id", user.id);
       localStorage.setItem("bmc_user_id", user.id);
@@ -45,7 +51,7 @@ export default function BMCLogin() {
       localStorage.setItem("bmc_id", user.username);
       navigate("/bmc/dashboard");
     } catch (err) {
-      alert(err.message || "Invalid Username or Password");
+      await showPopup({ message: err.message || "Invalid Username or Password", type: "error" });
     }
   };
 

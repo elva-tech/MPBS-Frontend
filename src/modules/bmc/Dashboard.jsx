@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import {
   ResponsiveContainer,
@@ -15,6 +15,7 @@ import {
   Tooltip,
 } from "recharts";
 import { getBmcDashboard, getReportQuality, getReportOverheads } from "../../utils/api";
+import { litersTooltip, percentTooltip } from "../../shared/charts/tooltips";
 
 const milkShareColors = ["#1E4B6B", "#9DB5CC"];
 const TOP_CARD_STYLES = [
@@ -178,7 +179,7 @@ export default function BmcDashboard() {
   // Loading state
   if (loading) {
     return (
-      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
+      <div className="module-page flex min-h-[50vh] items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E4B6B]"></div>
           <p className="mt-4 text-[#5B6B7F]">Loading BMC dashboard...</p>
@@ -190,7 +191,7 @@ export default function BmcDashboard() {
   // Error state
   if (error) {
     return (
-      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
+      <div className="module-page flex min-h-[50vh] items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-lg mb-4">Error Loading Dashboard</div>
           <p className="text-[#5B6B7F] mb-4">{error}</p>
@@ -208,14 +209,14 @@ export default function BmcDashboard() {
   // Fallback for missing data
   if (!summary || !milkBreakdown || milkBreakdown.length === 0) {
     return (
-      <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 flex items-center justify-center">
+      <div className="module-page flex min-h-[50vh] items-center justify-center">
         <p className="text-[#5B6B7F]">No data available</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-6 text-[#0F1E33] select-none cursor-default font-bold">
+    <div className="module-page text-[#0F1E33] select-none cursor-default font-bold">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <svg className="h-5 w-5 text-[#1E4B6B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -252,9 +253,9 @@ export default function BmcDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="module-stat-grid">
           <div
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
+            className="module-stat-card flex items-center gap-2.5 rounded-lg shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
             style={{ background: TOP_CARD_STYLES[0].bg, borderColor: TOP_CARD_STYLES[0].border }}
           >
             <div
@@ -275,7 +276,7 @@ export default function BmcDashboard() {
           </div>
 
           <div
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
+            className="module-stat-card flex items-center gap-2.5 rounded-lg shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
             style={{ background: TOP_CARD_STYLES[1].bg, borderColor: TOP_CARD_STYLES[1].border }}
           >
             <div
@@ -296,7 +297,7 @@ export default function BmcDashboard() {
           </div>
 
           <div
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
+            className="module-stat-card flex items-center gap-2.5 rounded-lg shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
             style={{ background: TOP_CARD_STYLES[2].bg, borderColor: TOP_CARD_STYLES[2].border }}
           >
             <div
@@ -320,7 +321,7 @@ export default function BmcDashboard() {
           </div>
 
           <div
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
+            className="module-stat-card flex items-center gap-2.5 rounded-lg shadow-[0_6px_14px_rgba(15,41,74,0.12)] border"
             style={{ background: TOP_CARD_STYLES[3].bg, borderColor: TOP_CARD_STYLES[3].border }}
           >
             <div
@@ -341,14 +342,14 @@ export default function BmcDashboard() {
           </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]">
+      <div className="mt-6 module-panel-grid-3">
+        <div className="module-panel rounded-xl border border-[#D7E4FF] bg-[#F7FAFF] p-5 shadow-[0_8px_18px_rgba(15,41,74,0.08)]">
           <div className="text-sm font-semibold text-[#1E4B6B]">Milk Breakdown</div>
           <div className="mt-3 flex items-center gap-6">
-            <div className="h-40 w-40">
+            <div className="h-52 w-52 min-w-[12rem] shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Tooltip />
+                  <Tooltip formatter={litersTooltip} />
                   <Pie
                     data={milkShare}
                     dataKey="value"
@@ -413,7 +414,7 @@ export default function BmcDashboard() {
                 <CartesianGrid stroke="#E1E6EB" strokeDasharray="4 4" />
                 <XAxis dataKey="name" tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip />
+                <Tooltip formatter={litersTooltip} />
                 <Bar dataKey="value" fill="#1E4B6B" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -462,7 +463,7 @@ export default function BmcDashboard() {
                 <CartesianGrid stroke="#E1E6EB" strokeDasharray="4 4" />
                 <XAxis dataKey="name" tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip />
+                <Tooltip formatter={litersTooltip} />
                 <Bar dataKey="value" fill="#E24C4C" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -525,7 +526,7 @@ export default function BmcDashboard() {
                 <CartesianGrid stroke="#E1E6EB" strokeDasharray="4 4" />
                 <XAxis dataKey="name" tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip />
+                <Tooltip formatter={litersTooltip} />
                 <Bar dataKey="good" fill="#1E4B6B" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="penalised" fill="#E24C4C" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -587,7 +588,7 @@ export default function BmcDashboard() {
                 <CartesianGrid stroke="#E1E6EB" strokeDasharray="4 4" />
                 <XAxis dataKey="name" tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#6B7FA0", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip />
+                <Tooltip formatter={litersTooltip} />
                 <Line type="monotone" dataKey="diesel" stroke="#1E4B6B" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="secretary" stroke="#9DB5CC" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="repair" stroke="#E24C4C" strokeWidth={2} dot={false} />

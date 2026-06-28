@@ -1,4 +1,4 @@
-﻿import {
+import {
   LineChart,
   Line,
   XAxis,
@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import jsPDF from "jspdf";
 import { getSocietyDashboard } from "../../utils/api";
+import { litersTooltip, percentTooltip } from "../../shared/charts/tooltips";
 
 const COLORS = ["#1E4B6B", "#9DB5CC"];
 const TOP_CARD_STYLES = [
@@ -87,7 +88,7 @@ export default function Dashboard() {
   // Loading state
   if (loading) {
     return (
-      <div className="bg-[#EFF5FF] min-h-screen p-6 flex items-center justify-center">
+      <div className="module-page flex min-h-[50vh] items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E4B6B]"></div>
           <p className="mt-4 text-[#5B6B7F]">Loading dashboard data...</p>
@@ -99,7 +100,7 @@ export default function Dashboard() {
   // Error state
   if (error) {
     return (
-      <div className="bg-[#EFF5FF] min-h-screen p-6 flex items-center justify-center">
+      <div className="module-page flex min-h-[50vh] items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-lg mb-4">?? Error Loading Dashboard</div>
           <p className="text-[#5B6B7F] mb-4">{error}</p>
@@ -117,7 +118,7 @@ export default function Dashboard() {
   // Fallback for missing summary data
   if (!summary) {
     return (
-      <div className="bg-[#EFF5FF] min-h-screen p-6 flex items-center justify-center">
+      <div className="module-page flex min-h-[50vh] items-center justify-center">
         <p className="text-[#5B6B7F]">No data available</p>
       </div>
     );
@@ -244,7 +245,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-[linear-gradient(180deg,#F7FAFF_0%,#EEF4FF_100%)] min-h-screen p-4 text-[#0F1E33] select-none cursor-default font-bold">
+    <div className="module-page text-[#0F1E33] select-none cursor-default font-bold">
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
@@ -276,14 +277,15 @@ export default function Dashboard() {
       </div>
 
       {/* TOP STATS */}
-      <div className="mb-8 grid grid-cols-[repeat(4,220px)_284px] items-center gap-4 overflow-x-auto pb-1 scrollbar-none">
+      <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-stretch">
+        <div className="module-stat-grid flex-1 xl:grid-cols-4">
         {/* Total Milk */}
         <div
-          className="h-[94px] rounded-md border p-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
+          className="module-stat-card rounded-md border shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
           style={{ background: TOP_CARD_STYLES[0].bg, borderColor: TOP_CARD_STYLES[0].border }}
         >
           <div
-            className="h-[70px] w-8 shrink-0 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            className="min-h-[76px] w-10 shrink-0 self-stretch rounded-md flex items-center justify-center text-[#1E4B6B] border"
             style={{ background: TOP_CARD_STYLES[0].iconBg, borderColor: TOP_CARD_STYLES[0].iconBorder }}
           ><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.7 6.3 8.4a8 8 0 1 0 11.4 0L12 2.7z" /></svg></div>
           <div>
@@ -294,11 +296,11 @@ export default function Dashboard() {
 
         {/* Total Farmers */}
         <div
-          className="h-[94px] rounded-md border p-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
+          className="module-stat-card rounded-md border shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
           style={{ background: TOP_CARD_STYLES[1].bg, borderColor: TOP_CARD_STYLES[1].border }}
         >
           <div
-            className="h-[70px] w-8 shrink-0 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            className="min-h-[76px] w-10 shrink-0 self-stretch rounded-md flex items-center justify-center text-[#1E4B6B] border"
             style={{ background: TOP_CARD_STYLES[1].iconBg, borderColor: TOP_CARD_STYLES[1].iconBorder }}
           ><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="7" r="4" /><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></div>
           <div>
@@ -309,11 +311,11 @@ export default function Dashboard() {
 
         {/* Morning / Evening */}
         <div
-          className="h-[94px] rounded-md border p-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
+          className="module-stat-card rounded-md border shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
           style={{ background: TOP_CARD_STYLES[2].bg, borderColor: TOP_CARD_STYLES[2].border }}
         >
           <div
-            className="h-[70px] w-8 shrink-0 rounded-md flex items-center justify-center border"
+            className="min-h-[76px] w-10 shrink-0 self-stretch rounded-md flex items-center justify-center border"
             style={{ background: TOP_CARD_STYLES[2].iconBg, borderColor: TOP_CARD_STYLES[2].iconBorder }}
           >
             <div className="w-6 h-6 rounded-full bg-[#1E4B6B] flex items-center justify-center">
@@ -325,10 +327,10 @@ export default function Dashboard() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[16px] text-[#3B3124] font-medium leading-tight mb-2 whitespace-nowrap">Types Of Milk</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-[13px] text-[#8B806F] flex items-center gap-1 whitespace-nowrap">
-                  <svg className="w-3.5 h-3.5 text-[#6B7FA0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="module-stat-split">
+              <div className="module-stat-split-item">
+                <span className="module-stat-split-label text-[#8B806F]">
+                  <svg className="w-3.5 h-3.5 shrink-0 text-[#6B7FA0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M4 15h16" />
                     <path d="M7 13l2-2 2 2" />
                     <path d="M12 6a6 6 0 0 0-6 6" />
@@ -339,11 +341,11 @@ export default function Dashboard() {
                   </svg>
                   Morning
                 </span>
-                <p className="font-semibold text-[16px] text-[#3B3124] leading-none mt-1.5 text-right">{summary.session.morning} L</p>
+                <p className="module-stat-split-value text-[#3B3124]">{summary.session.morning} L</p>
               </div>
-              <div>
-                <span className="text-[13px] text-[#8B806F] flex items-center gap-1 whitespace-nowrap">
-                  <svg className="w-3.5 h-3.5 text-[#6B7FA0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <div className="module-stat-split-item">
+                <span className="module-stat-split-label text-[#8B806F]">
+                  <svg className="w-3.5 h-3.5 shrink-0 text-[#6B7FA0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M4 15h16" />
                     <path d="M13 13l2 2 2-2" />
                     <path d="M12 6a6 6 0 0 0-6 6" />
@@ -354,7 +356,7 @@ export default function Dashboard() {
                   </svg>
                   Evening
                 </span>
-                <p className="font-semibold text-[16px] text-[#3B3124] leading-none mt-1.5 text-right">{summary.session.evening} L</p>
+                <p className="module-stat-split-value text-[#3B3124]">{summary.session.evening} L</p>
               </div>
             </div>
           </div>
@@ -362,11 +364,11 @@ export default function Dashboard() {
 
         {/* Buffalo / Cow */}
         <div
-          className="h-[94px] rounded-md border p-2.5 shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
+          className="module-stat-card rounded-md border shadow-[0_6px_14px_rgba(15,41,74,0.12)] flex items-center gap-3"
           style={{ background: TOP_CARD_STYLES[3].bg, borderColor: TOP_CARD_STYLES[3].border }}
         >
           <div
-            className="h-[70px] w-8 shrink-0 rounded-md flex items-center justify-center text-[#1E4B6B] border"
+            className="min-h-[76px] w-10 shrink-0 self-stretch rounded-md flex items-center justify-center text-[#1E4B6B] border"
             style={{ background: TOP_CARD_STYLES[3].iconBg, borderColor: TOP_CARD_STYLES[3].iconBorder }}
           >
             <svg className="w-5 h-5" viewBox="0 0 64 64" aria-hidden="true">
@@ -382,11 +384,11 @@ export default function Dashboard() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[16px] text-[#12213A] font-medium leading-tight mb-2 whitespace-nowrap">Types Of Milk</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-[13px] text-[#657491] flex items-center gap-1.5 whitespace-nowrap">
+            <div className="module-stat-split">
+              <div className="module-stat-split-item">
+                <span className="module-stat-split-label text-[#657491]">
                   <svg
-                    className="w-3.5 h-3.5 text-[#1E4B6B]"
+                    className="w-3.5 h-3.5 shrink-0 text-[#1E4B6B]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -402,12 +404,12 @@ export default function Dashboard() {
                   </svg>
                   Buffalo
                 </span>
-                <p className="font-semibold text-[16px] text-[#12213A] leading-none mt-1.5 text-right">{summary.type.buffalo} L</p>
+                <p className="module-stat-split-value text-[#12213A]">{summary.type.buffalo} L</p>
               </div>
-              <div>
-                <span className="text-[13px] text-[#657491] flex items-center gap-1.5 whitespace-nowrap">
+              <div className="module-stat-split-item">
+                <span className="module-stat-split-label text-[#657491]">
                   <svg
-                    className="w-3.5 h-3.5 text-[#1E4B6B]"
+                    className="w-3.5 h-3.5 shrink-0 text-[#1E4B6B]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -429,15 +431,17 @@ export default function Dashboard() {
                   </svg>
                   Cow
                 </span>
-                <p className="font-semibold text-[16px] text-[#12213A] leading-none mt-1.5 text-right">{summary.type.cow} L</p>
+                <p className="module-stat-split-value text-[#12213A]">{summary.type.cow} L</p>
               </div>
             </div>
           </div>
         </div>
 
+        </div>
+
         <button
           onClick={handleDownloadDispatchSheet}
-          className="ml-auto bg-[#C7CCD4] hover:bg-[#C7CCD4] text-[#1E4B6B] px-6 py-2.5 rounded-md font-semibold shadow-[0_8px_18px_rgba(15,41,74,0.25)] flex items-center gap-2 whitespace-nowrap"
+          className="module-btn w-full xl:w-auto xl:min-w-[240px] bg-[#C7CCD4] hover:bg-[#C7CCD4] text-[#1E4B6B] font-semibold shadow-[0_8px_18px_rgba(15,41,74,0.25)] xl:self-center"
         >
           <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 3v12" />
@@ -449,9 +453,9 @@ export default function Dashboard() {
       </div>
 
       {/* MAIN GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="module-panel-grid-3">
         {/* MILK BREAKDOWN */}
-        <div className="border border-[#D7E4FF] rounded-xl p-5 bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] flex flex-col h-full">
+        <div className="module-panel border border-[#D7E4FF] rounded-xl p-5 bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] flex flex-col">
           <h3 className="text-sm font-semibold text-[#1E4B6B]">Milk Breakdown</h3>
           <div className="mt-2 flex items-center gap-4 text-[11px] text-[#6B7FA0]">
             {milkBreakdown.map((item, index) => (
@@ -465,9 +469,10 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <div className="mt-6 flex justify-center">
-            <PieChart width={260} height={260}>
-              <Tooltip />
+          <div className="mt-4 flex flex-1 min-h-[300px] w-full items-center justify-center">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+              <Tooltip formatter={litersTooltip} />
               <Pie
                 data={milkBreakdown}
                 cx="50%"
@@ -482,11 +487,12 @@ export default function Dashboard() {
                 ))}
               </Pie>
             </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
         {/* FEED */}
-        <div className="border border-[#D7E4FF] rounded-xl bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] overflow-hidden flex flex-col h-full">
+        <div className="module-panel border border-[#D7E4FF] rounded-xl bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] flex flex-col">
           <div className="p-5">
             <h3 className="text-sm font-semibold text-[#1E4B6B]">Cattle Feed & Mineral Mix</h3>
 
@@ -543,10 +549,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="border-t border-[#D7E4FF] p-4 mt-auto">
+          <div className="module-card-footer">
             <button
               onClick={handleDownloadDashboard}
-              className="mx-auto border border-[#1E4B6B] text-[#1E4B6B] px-4 py-2 rounded font-semibold flex items-center justify-center gap-2 bg-white"
+              className="module-btn mx-auto w-full max-w-[240px] border border-[#1E4B6B] text-[#1E4B6B] font-semibold bg-white"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 3v12" />
@@ -559,7 +565,7 @@ export default function Dashboard() {
         </div>
 
         {/* REVENUE */}
-        <div className="border border-[#D7E4FF] rounded-xl bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] overflow-hidden flex flex-col h-full">
+        <div className="module-panel border border-[#D7E4FF] rounded-xl bg-white shadow-[0_8px_18px_rgba(15,41,74,0.08)] flex flex-col">
           <div className="p-5">
             <h3 className="text-sm font-semibold text-[#1E4B6B]">Revenue</h3>
 
@@ -574,8 +580,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="mt-2">
-              <ResponsiveContainer width="100%" height={220}>
+            <div className="mt-2 min-h-[240px]">
+              <ResponsiveContainer width="100%" height={240}>
               <LineChart
                 data={revenue}
                 margin={{ left: 4, right: 16, top: 6, bottom: 12 }}
@@ -602,7 +608,7 @@ export default function Dashboard() {
                     style: { fill: "#6B7FA0", fontSize: 11 },
                   }}
                 />
-                <Tooltip />
+                <Tooltip formatter={litersTooltip} />
                 <Line type="monotone" dataKey="buffalo" stroke={COLORS[0]} strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="cow" stroke={COLORS[1]} strokeWidth={2} dot={false} />
               </LineChart>
@@ -612,10 +618,10 @@ export default function Dashboard() {
             <div className="mt-1 text-center text-xs text-[#6B7FA0]">Month</div>
           </div>
 
-          <div className="border-t border-[#D7E4FF] p-4 mt-auto">
+          <div className="module-card-footer">
             <button
               onClick={handleDownloadDashboard}
-              className="mx-auto border border-[#1E4B6B] text-[#1E4B6B] px-4 py-2 rounded font-semibold flex items-center justify-center gap-2 bg-white"
+              className="module-btn mx-auto w-full max-w-[240px] border border-[#1E4B6B] text-[#1E4B6B] font-semibold bg-white"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 3v12" />

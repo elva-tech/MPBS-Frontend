@@ -101,7 +101,7 @@ export default function ProcurementDispatches() {
   };
 
   return (
-    <div className="space-y-4 p-6 text-[#1F2A44]">
+    <div className="module-page text-[#1F2A44]">
       <div className="flex justify-end">
         <button
           type="button"

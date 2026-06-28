@@ -15,6 +15,7 @@ import notificationRoutes from "./routes/notifications.js";
 import requestRoutes from "./routes/requests.js";
 import reportRoutes from "./routes/reports.js";
 import procurementRoutes from "./routes/procurement.js";
+import dairyRoutes from "./routes/dairy.js";
 import uploadRoutes from "./routes/uploads.js";
 import accountsRoutes from "./routes/accounts.js";
 import claimsRoutes from "./routes/claims.js";
@@ -157,6 +158,7 @@ export function createApp(options = {}) {
   app.use("/requests", requestRoutes);
   app.use("/reports", reportRoutes);
   app.use("/procurement", procurementRoutes);
+  app.use("/dairy", dairyRoutes);
   app.use("/uploads", uploadRoutes);
   app.use("/claims", claimsRoutes);
   app.use("/recoverables", recoverablesRoutes);

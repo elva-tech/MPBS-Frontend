@@ -1,11 +1,8 @@
 import { Navigate } from "react-router-dom";
+import { hasModuleSession } from "../../utils/authSession";
 
 export default function ProcurementAuthGuard({ children }) {
-  const isAuthenticated = localStorage.getItem("procurement_auth") === "true";
-  const role = localStorage.getItem("user_role");
-  const token = localStorage.getItem("procurement_token") || localStorage.getItem("auth_token");
-
-  if (!isAuthenticated || role !== "ProcurementInputs" || !token) {
+  if (!hasModuleSession("procurement", "ProcurementInputs")) {
     return <Navigate to="/procurement/login" replace />;
   }
 

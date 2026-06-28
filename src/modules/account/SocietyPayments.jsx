@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Landmark, Search } from "lucide-react";
-import { calculateSocietyBilling, hydrateAccountSocieties, loadAccountState, lockCycle, runBillingForCycle, setSelections } from "./engine";
+import { calculateSocietyBilling, hydrateAccountSocieties } from "./engine";
+import { lockCycleBilling, runCycleBilling, setAccountSelections } from "./accountService";
 import { getMilkEntries } from "../../utils/api";
 
 export default function SocietyPayments() {
-  const [state, setState] = useState(() => loadAccountState());
+  const [state, setState] = useState({ cycles: [], societies: [], billingResults: {} });
   const [message, setMessage] = useState("");
   const [societySearch, setSocietySearch] = useState("");
   const [milkLines, setMilkLines] = useState([
@@ -34,7 +35,7 @@ export default function SocietyPayments() {
   );
 
   const milkSummary = useMemo(() => {
-    const rows = state.milkData.filter((item) => item.cycleId === selectedCycleId && item.societyId === selectedSocietyId);
+    const rows = (state.milkData || []).filter((item) => item.cycleId === selectedCycleId && item.societyId === selectedSocietyId);
     return rows.reduce(
       (summary, row) => {
         summary.cowQty += Number(row?.cowQty || 0);
@@ -147,33 +148,41 @@ export default function SocietyPayments() {
 
   const handleCycleChange = (e) => {
     const cycleId = e.target.value;
-    const next = setSelections({ cycleId });
-    setState(next);
+    setAccountSelections({ cycleId });
+    setState((current) => ({ ...current, selectedCycleId: cycleId }));
   };
 
   const handleSocietyChange = (e) => {
     const societyId = e.target.value;
-    const next = setSelections({ societyId });
-    setState(next);
+    setAccountSelections({ societyId });
+    setState((current) => ({ ...current, selectedSocietyId: societyId }));
   };
 
-  const handleRecalculate = () => {
-    const res = runBillingForCycle(selectedCycleId);
-    setState(res.state || loadAccountState());
-    setMessage(res.message);
+  const handleRecalculate = async () => {
+    try {
+      const res = await runCycleBilling(selectedCycleId);
+      setState(res.state);
+      setMessage(res.message);
+    } catch (error) {
+      setMessage(error.message || "Unable to run billing.");
+    }
   };
 
-  const handleLockProceed = () => {
-    const res = lockCycle(selectedCycleId);
-    setState(res.state || loadAccountState());
-    setMessage(res.message);
+  const handleLockProceed = async () => {
+    try {
+      const res = await lockCycleBilling(selectedCycleId);
+      setState(res.state);
+      setMessage(res.message);
+    } catch (error) {
+      setMessage(error.message || "Unable to lock cycle.");
+    }
   };
 
   const isLocked = selectedCycle?.status === "LOCKED" || selectedCycle?.status === "PAID";
 
   return (
-    <div className="p-6 text-[#1F2A44]">
-      <section className="max-w-[980px] overflow-hidden rounded-lg border border-[#DCE4F2] bg-white shadow-[0_8px_24px_rgba(31,42,68,0.08)]">
+    <div className="module-page module-page-body text-[#1F2A44]">
+      <section className="w-full overflow-hidden rounded-lg border border-[#DCE4F2] bg-white shadow-[0_8px_24px_rgba(31,42,68,0.08)]">
         <header className="flex flex-col gap-3 border-b border-[#E3E9F4] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <Landmark className="h-7 w-7 text-[#1F2A44]" aria-hidden="true" />

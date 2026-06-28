@@ -1,4 +1,4 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { User } from "../src/models/User.js";
@@ -39,6 +39,8 @@ async function run() {
   await User.create({ username: "audit", passwordHash: auditPass, role: "Audit", authStatus: "Approved" });
   const accountPass = await bcrypt.hash("123", 10);
   await User.create({ username: "Account01", passwordHash: accountPass, role: "Account", authStatus: "Approved" });
+  const dairyPass = await bcrypt.hash("dairy123", 10);
+  await User.create({ username: "DAIRY_001", passwordHash: dairyPass, role: "Dairy", authStatus: "Approved" });
   const procurementPass = await bcrypt.hash("123", 10);
   await User.create({ username: "P&I", passwordHash: procurementPass, role: "ProcurementInputs", authStatus: "Approved" });
 
